@@ -6,6 +6,8 @@ package com.advantest.markdown.ls;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -15,7 +17,14 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
@@ -28,6 +37,8 @@ import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.TextDocumentSyncOptions;
 import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
+import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,6 +61,8 @@ class MarkdownTextDocumentServiceTest {
 
 	private final AtomicBoolean shutDown = new AtomicBoolean();
 	private final PublishedDiagnostics published = new PublishedDiagnostics();
+	private final ExecutorService renderThread = Executors.newSingleThreadExecutor();
+	private final AtomicInteger rendered = new AtomicInteger();
 	private MarkdownService service;
 	private DocumentValidator validator;
 	private MarkdownTextDocumentService documents;
@@ -60,7 +73,11 @@ class MarkdownTextDocumentServiceTest {
 	void createServiceAndFiles() throws IOException {
 		this.service = MarkdownService.builderNotCheckingUriReachability().build();
 		this.validator = new DocumentValidator(this.service, this.published, Duration.ofMillis(50));
-		this.documents = new MarkdownTextDocumentService(this.service, this.shutDown::get, this.validator);
+		Executor renderer = task -> {
+			this.rendered.incrementAndGet();
+			this.renderThread.execute(task);
+		};
+		this.documents = new MarkdownTextDocumentService(this.service, this.shutDown::get, this.validator, renderer);
 		this.target = Files.writeString(this.folder.resolve("target.md"), "# Old heading\n");
 		this.linking = Files.writeString(this.folder.resolve("linking.md"), LINKING_TEXT);
 	}
@@ -68,6 +85,7 @@ class MarkdownTextDocumentServiceTest {
 	@AfterEach
 	void closeService() {
 		this.validator.close();
+		this.renderThread.shutdownNow();
 		this.service.close();
 	}
 
@@ -252,6 +270,83 @@ class MarkdownTextDocumentServiceTest {
 
 		assertEquals(Optional.of("# One\n"), this.documents.textOf(uriOf(this.target)));
 		assertEquals(Optional.empty(), this.documents.textOf(uriOf(this.linking)));
+	}
+
+	@Test
+	void renderHtmlRendersTheLatestTextOfTheClientOnTheRenderer() throws Exception {
+		open(uriOf(this.target), "# One\n");
+		change(uriOf(this.target), "# Two {#two}\n\nUnsaved *text*\n");
+
+		RenderHtmlResult result = renderHtml(uriOf(this.target));
+
+		assertEquals(uriOf(this.target), result.uri());
+		assertEquals(2, result.version());
+		assertTrue(result.html().contains("<em"), result.html());
+		assertTrue(result.html().contains("Unsaved"), result.html());
+		assertTrue(result.html().contains("source-offset"), "Source positions are kept: " + result.html());
+		assertEquals(1, this.rendered.get());
+	}
+
+	@Test
+	void renderHtmlRendersADocumentThatIsNoFile() throws Exception {
+		open("untitled:Untitled-1", "Some *text*\n");
+
+		RenderHtmlResult result = renderHtml("untitled:Untitled-1");
+
+		assertEquals(1, result.version());
+		assertTrue(result.html().contains("<em"), result.html());
+	}
+
+	@Test
+	void renderHtmlOfADocumentNotOpenFails() {
+		assertError(ResponseErrorCode.RequestFailed, this.documents.renderHtml(paramsFor(uriOf(this.target))));
+		assertEquals(0, this.rendered.get());
+	}
+
+	@Test
+	void renderHtmlOfAClosedDocumentFails() {
+		open(uriOf(this.target), "# One\n");
+		close(uriOf(this.target));
+
+		assertError(ResponseErrorCode.RequestFailed, this.documents.renderHtml(paramsFor(uriOf(this.target))));
+	}
+
+	@Test
+	void renderHtmlWithoutADocumentFails() {
+		assertError(ResponseErrorCode.InvalidParams, this.documents.renderHtml(null));
+		assertError(ResponseErrorCode.InvalidParams, this.documents.renderHtml(new RenderHtmlParams(null)));
+		assertError(ResponseErrorCode.InvalidParams,
+				this.documents.renderHtml(new RenderHtmlParams(new TextDocumentIdentifier())));
+	}
+
+	@Test
+	void renderHtmlAfterShutdownFails() {
+		open(uriOf(this.target), "# One\n");
+		this.shutDown.set(true);
+
+		assertError(ResponseErrorCode.InvalidRequest, this.documents.renderHtml(paramsFor(uriOf(this.target))));
+	}
+
+	@Test
+	void renderHtmlFailsIfTheServiceIsClosedBeforeTheRenderingStarts() {
+		open(uriOf(this.target), "# One\n");
+		this.service.close();
+
+		assertError(ResponseErrorCode.InvalidRequest, this.documents.renderHtml(paramsFor(uriOf(this.target))));
+	}
+
+	private RenderHtmlResult renderHtml(String uri) throws Exception {
+		return this.documents.renderHtml(paramsFor(uri)).get(10, TimeUnit.SECONDS);
+	}
+
+	private static RenderHtmlParams paramsFor(String uri) {
+		return new RenderHtmlParams(new TextDocumentIdentifier(uri));
+	}
+
+	private static void assertError(ResponseErrorCode expected, CompletableFuture<RenderHtmlResult> answer) {
+		ExecutionException failure = assertThrows(ExecutionException.class, () -> answer.get(10, TimeUnit.SECONDS));
+		ResponseErrorException error = assertInstanceOf(ResponseErrorException.class, failure.getCause());
+		assertEquals(expected.getValue(), error.getResponseError().getCode());
 	}
 
 	private List<ValidationIssue> issuesOfLinkingDocument() {

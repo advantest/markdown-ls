@@ -175,6 +175,28 @@
 				</dependencies>
 			</plugin>
 
+			<!-- Runs the tests that start the server as a process of its own, named *IT. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-failsafe-plugin</artifactId>
+				<version>3.1.2</version>
+				<dependencies>
+					<dependency>
+						<groupId>org.junit.jupiter</groupId>
+						<artifactId>junit-jupiter-engine</artifactId>
+						<version>${junit-version}</version>
+					</dependency>
+				</dependencies>
+				<executions>
+					<execution>
+						<goals>
+							<goal>integration-test</goal>
+							<goal>verify</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+
 			<!-- Measures how much of the code the tests reach, without judging the result. The
 			     report is written to target/site/jacoco/index.html. -->
 			<plugin>

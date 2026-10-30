@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -20,6 +21,7 @@ import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.DidSaveTextDocumentParams;
+import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.TextDocumentContentChangeEvent;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
@@ -47,7 +49,9 @@ class MarkdownTextDocumentServiceTest {
 	Path folder;
 
 	private final AtomicBoolean shutDown = new AtomicBoolean();
+	private final PublishedDiagnostics published = new PublishedDiagnostics();
 	private MarkdownService service;
+	private DocumentValidator validator;
 	private MarkdownTextDocumentService documents;
 	private Path target;
 	private Path linking;
@@ -55,13 +59,15 @@ class MarkdownTextDocumentServiceTest {
 	@BeforeEach
 	void createServiceAndFiles() throws IOException {
 		this.service = MarkdownService.builderNotCheckingUriReachability().build();
-		this.documents = new MarkdownTextDocumentService(this.service, this.shutDown::get);
+		this.validator = new DocumentValidator(this.service, this.published, Duration.ofMillis(50));
+		this.documents = new MarkdownTextDocumentService(this.service, this.shutDown::get, this.validator);
 		this.target = Files.writeString(this.folder.resolve("target.md"), "# Old heading\n");
 		this.linking = Files.writeString(this.folder.resolve("linking.md"), LINKING_TEXT);
 	}
 
 	@AfterEach
 	void closeService() {
+		this.validator.close();
 		this.service.close();
 	}
 
@@ -174,13 +180,74 @@ class MarkdownTextDocumentServiceTest {
 	}
 
 	@Test
+	void openValidatesTheDocument() throws InterruptedException {
+		open(uriOf(this.linking), LINKING_TEXT);
+
+		PublishDiagnosticsParams diagnostics = this.published.next();
+		assertEquals(uriOf(this.linking), diagnostics.getUri());
+		assertEquals(1, diagnostics.getVersion());
+		assertEquals(1, diagnostics.getDiagnostics().size());
+	}
+
+	@Test
+	void changeValidatesTheLatestText() throws InterruptedException {
+		open(uriOf(this.linking), LINKING_TEXT);
+		this.published.next();
+
+		change(uriOf(this.linking), "No link\n");
+
+		PublishDiagnosticsParams diagnostics = this.published.next();
+		assertEquals(2, diagnostics.getVersion());
+		assertEquals(List.of(), diagnostics.getDiagnostics());
+	}
+
+	@Test
+	void saveValidatesTheDocumentAgainstFilesSavedMeanwhile() throws InterruptedException, IOException {
+		open(uriOf(this.linking), LINKING_TEXT);
+		assertEquals(1, this.published.next().getDiagnostics().size());
+		Files.writeString(this.target, "# New heading {#new-heading}\n");
+
+		save(uriOf(this.linking));
+
+		assertEquals(List.of(), this.published.next().getDiagnostics());
+	}
+
+	@Test
+	void saveOfADocumentNotOpenValidatesNothing() throws InterruptedException {
+		save(uriOf(this.linking));
+
+		this.published.assertNoneWithin(Duration.ofMillis(200));
+	}
+
+	@Test
+	void closeRemovesTheDiagnostics() throws InterruptedException {
+		open(uriOf(this.linking), LINKING_TEXT);
+		this.published.next();
+
+		close(uriOf(this.linking));
+
+		PublishDiagnosticsParams diagnostics = this.published.next();
+		assertEquals(uriOf(this.linking), diagnostics.getUri());
+		assertEquals(List.of(), diagnostics.getDiagnostics());
+	}
+
+	@Test
+	void aDocumentThatIsNoFileIsValidatedAsWell() throws InterruptedException {
+		open("untitled:Untitled-1", "[Missing](#nowhere)\n");
+
+		assertEquals(1, this.published.next().getDiagnostics().size());
+	}
+
+	@Test
 	void notificationsAfterShutdownAreIgnored() {
 		open(uriOf(this.target), "# One\n");
 		this.shutDown.set(true);
+		this.validator.close();
 		this.service.close();
 
 		open(uriOf(this.linking), LINKING_TEXT);
 		change(uriOf(this.target), "# Two\n");
+		save(uriOf(this.target));
 		close(uriOf(this.target));
 
 		assertEquals(Optional.of("# One\n"), this.documents.textOf(uriOf(this.target)));
@@ -209,5 +276,9 @@ class MarkdownTextDocumentServiceTest {
 
 	private void close(String uri) {
 		this.documents.didClose(new DidCloseTextDocumentParams(new TextDocumentIdentifier(uri)));
+	}
+
+	private void save(String uri) {
+		this.documents.didSave(new DidSaveTextDocumentParams(new TextDocumentIdentifier(uri)));
 	}
 }

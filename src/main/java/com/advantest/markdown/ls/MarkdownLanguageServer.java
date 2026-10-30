@@ -14,6 +14,7 @@ import java.util.concurrent.Future;
 
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
+import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.ServerInfo;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
@@ -44,6 +45,7 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 	private static final Logger LOG = LoggerFactory.getLogger(MarkdownLanguageServer.class);
 
 	private final MarkdownService service;
+	private final DocumentValidator validator;
 	private final MarkdownTextDocumentService documents;
 	private final CompletableFuture<Future<Void>> listening = new CompletableFuture<>();
 	private volatile LanguageClient client;
@@ -51,7 +53,8 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 
 	private MarkdownLanguageServer(MarkdownService service) {
 		this.service = Objects.requireNonNull(service, "A server needs a service.");
-		this.documents = new MarkdownTextDocumentService(service, () -> this.shutdownRequested);
+		this.validator = new DocumentValidator(service, this::publish, DocumentValidator.DELAY_AFTER_CHANGE);
+		this.documents = new MarkdownTextDocumentService(service, () -> this.shutdownRequested, this.validator);
 	}
 
 	/**
@@ -108,13 +111,17 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 		}
-		server.service.close();
+		server.closeService();
 		System.exit(server.shutdownRequested ? 0 : 1);
 	}
 
 	@Override
 	public void connect(LanguageClient client) {
 		this.client = client;
+	}
+
+	private void publish(PublishDiagnosticsParams diagnostics) {
+		this.client.publishDiagnostics(diagnostics);
 	}
 
 	@Override
@@ -127,14 +134,19 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 	@Override
 	public CompletableFuture<Object> shutdown() {
 		this.shutdownRequested = true;
-		this.service.close();
+		closeService();
 		return CompletableFuture.completedFuture(null);
 	}
 
 	@Override
 	public void exit() {
-		this.service.close();
+		closeService();
 		this.listening.thenAccept(future -> future.cancel(true));
+	}
+
+	private void closeService() {
+		this.validator.close();
+		this.service.close();
 	}
 
 	@Override

@@ -29,13 +29,15 @@ import com.advantest.resources.LocalFileSystemResource;
 import com.advantest.resources.Resource;
 
 /**
- * Keeps the documents the client has open and tells the service what they contain.
+ * Keeps the documents the client has open, tells the service what they contain and has them
+ * validated.
  *
  * <p>The client sends the whole text of a document whenever it changes. Until the document is
  * closed, the service reads the file as that text rather than as what is saved, wherever a document
  * refers to it. Only documents whose URI names a file are told to the service; the others are kept
- * all the same. Notifications arriving after the client asked the server to shut down are ignored,
- * since the service is closed by then.</p>
+ * all the same. A document is validated when it is opened and saved, and once its edits have paused.
+ * Notifications arriving after the client asked the server to shut down are ignored, since the
+ * service is closed by then.</p>
  */
 final class MarkdownTextDocumentService implements TextDocumentService {
 
@@ -43,15 +45,18 @@ final class MarkdownTextDocumentService implements TextDocumentService {
 
 	private final MarkdownService service;
 	private final BooleanSupplier shutDown;
+	private final DocumentValidator validator;
 	private final Map<String, OpenDocument> openDocuments = new ConcurrentHashMap<>();
 
 	/**
 	 * @param service the service to tell the contents of the open documents, not <code>null</code>
 	 * @param shutDown says whether the client asked the server to shut down, not <code>null</code>
+	 * @param validator validates the open documents, not <code>null</code>
 	 */
-	MarkdownTextDocumentService(MarkdownService service, BooleanSupplier shutDown) {
+	MarkdownTextDocumentService(MarkdownService service, BooleanSupplier shutDown, DocumentValidator validator) {
 		this.service = Objects.requireNonNull(service);
 		this.shutDown = Objects.requireNonNull(shutDown);
+		this.validator = Objects.requireNonNull(validator);
 	}
 
 	/**
@@ -81,9 +86,11 @@ final class MarkdownTextDocumentService implements TextDocumentService {
 			return;
 		}
 		String uri = params.getTextDocument().getUri();
-		OpenDocument document = new OpenDocument(resourceOf(uri), params.getTextDocument().getText());
+		OpenDocument document = new OpenDocument(resourceOf(uri), params.getTextDocument().getText(),
+				params.getTextDocument().getVersion());
 		this.openDocuments.put(uri, document);
 		document.tell(this.service);
+		this.validator.validateNow(uri, document.resource(), document.text(), document.version());
 	}
 
 	@Override
@@ -98,9 +105,11 @@ final class MarkdownTextDocumentService implements TextDocumentService {
 			return;
 		}
 		// with full synchronisation each change holds the whole text, so the last one counts
-		OpenDocument changed = new OpenDocument(opened.resource(), changes.get(changes.size() - 1).getText());
+		OpenDocument changed = new OpenDocument(opened.resource(), changes.get(changes.size() - 1).getText(),
+				params.getTextDocument().getVersion());
 		this.openDocuments.put(uri, changed);
 		changed.tell(this.service);
+		this.validator.validateAfterChange(uri, changed.resource(), changed.text(), changed.version());
 	}
 
 	@Override
@@ -108,15 +117,28 @@ final class MarkdownTextDocumentService implements TextDocumentService {
 		if (this.shutDown.getAsBoolean()) {
 			return;
 		}
-		OpenDocument closed = this.openDocuments.remove(params.getTextDocument().getUri());
-		if (closed != null && closed.resource() != null) {
+		String uri = params.getTextDocument().getUri();
+		OpenDocument closed = this.openDocuments.remove(uri);
+		if (closed == null) {
+			return;
+		}
+		if (closed.resource() != null) {
 			this.service.dropUnsavedContents(closed.resource());
 		}
+		this.validator.forget(uri);
 	}
 
 	@Override
 	public void didSave(DidSaveTextDocumentParams params) {
-		// the client still holds the text, which now equals what is saved
+		if (this.shutDown.getAsBoolean()) {
+			return;
+		}
+		String uri = params.getTextDocument().getUri();
+		OpenDocument saved = this.openDocuments.get(uri);
+		if (saved != null) {
+			// the files the document refers to may have been saved along with it
+			this.validator.validateNow(uri, saved.resource(), saved.text(), saved.version());
+		}
 	}
 
 	/**
@@ -139,9 +161,10 @@ final class MarkdownTextDocumentService implements TextDocumentService {
 	}
 
 	/**
-	 * A document the client has open: the file it is, if it is one, and the text the client holds.
+	 * A document the client has open: the file it is, if it is one, and the text the client holds
+	 * in the given version.
 	 */
-	private record OpenDocument(Resource resource, String text) {
+	private record OpenDocument(Resource resource, String text, Integer version) {
 
 		void tell(MarkdownService service) {
 			if (this.resource != null) {

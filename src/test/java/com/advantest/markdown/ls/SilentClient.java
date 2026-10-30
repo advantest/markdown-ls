@@ -14,7 +14,7 @@ import org.eclipse.lsp4j.services.LanguageClient;
 /**
  * A client that ignores everything the server tells it.
  */
-final class SilentClient implements LanguageClient {
+class SilentClient implements LanguageClient {
 
 	@Override
 	public void telemetryEvent(Object object) {

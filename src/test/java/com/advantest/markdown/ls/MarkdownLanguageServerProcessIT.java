@@ -12,6 +12,8 @@ import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Future;
@@ -19,14 +21,18 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializedParams;
+import org.eclipse.lsp4j.PublishDiagnosticsParams;
+import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.launch.LSPLauncher;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Starts the server as a program of its own and talks to it over its standard input and output, as
@@ -37,6 +43,10 @@ class MarkdownLanguageServerProcessIT {
 	private static final long TIMEOUT_SECONDS = 30;
 	private static final Pattern MESSAGE_HEADER = Pattern.compile("Content-Length: (\\d+)\r\n\r\n");
 
+	@TempDir
+	Path folder;
+
+	private final RecordingClient client = new RecordingClient();
 	private Process process;
 	private RecordingInputStream serverOut;
 	private Future<Void> clientListening;
@@ -58,7 +68,7 @@ class MarkdownLanguageServerProcessIT {
 				.start();
 
 		this.serverOut = new RecordingInputStream(this.process.getInputStream());
-		Launcher<LanguageServer> client = LSPLauncher.createClientLauncher(new SilentClient(), this.serverOut,
+		Launcher<LanguageServer> client = LSPLauncher.createClientLauncher(this.client, this.serverOut,
 				this.process.getOutputStream());
 		this.clientListening = client.startListening();
 		this.server = client.getRemoteProxy();
@@ -90,6 +100,21 @@ class MarkdownLanguageServerProcessIT {
 		this.server.exit();
 
 		assertEquals(1, awaitExitCode());
+	}
+
+	@Test
+	void publishesTheIssuesOfAnOpenedDocument() throws Exception {
+		Files.writeString(this.folder.resolve("target.md"), "# Target\n");
+		String uri = this.folder.resolve("document.md").toUri().toString();
+		this.server.initialize(new InitializeParams()).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		this.server.initialized(new InitializedParams());
+
+		this.server.getTextDocumentService().didOpen(new DidOpenTextDocumentParams(
+				new TextDocumentItem(uri, "markdown", 1, "[Target](target.md#missing)\n")));
+
+		PublishDiagnosticsParams published = this.client.diagnostics.next();
+		assertEquals(uri, published.getUri());
+		assertEquals(1, published.getDiagnostics().size());
 	}
 
 	private int awaitExitCode() throws InterruptedException {

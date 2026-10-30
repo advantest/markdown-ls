@@ -9,7 +9,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.function.BooleanSupplier;
 
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
@@ -20,6 +22,9 @@ import org.eclipse.lsp4j.SaveOptions;
 import org.eclipse.lsp4j.TextDocumentContentChangeEvent;
 import org.eclipse.lsp4j.TextDocumentSyncKind;
 import org.eclipse.lsp4j.TextDocumentSyncOptions;
+import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +32,7 @@ import org.slf4j.LoggerFactory;
 import com.advantest.markdown.service.MarkdownService;
 import com.advantest.resources.LocalFileSystemResource;
 import com.advantest.resources.Resource;
+import com.advantest.resources.UnresolvedResource;
 
 /**
  * Keeps the documents the client has open, tells the service what they contain and has them
@@ -36,27 +42,37 @@ import com.advantest.resources.Resource;
  * closed, the service reads the file as that text rather than as what is saved, wherever a document
  * refers to it. Only documents whose URI names a file are told to the service; the others are kept
  * all the same. A document is validated when it is opened and saved, and once its edits have paused.
- * Notifications arriving after the client asked the server to shut down are ignored, since the
- * service is closed by then.</p>
+ * An open document is rendered to HTML on request. Notifications arriving after the client asked the
+ * server to shut down are ignored, since the service is closed by then.</p>
  */
 final class MarkdownTextDocumentService implements TextDocumentService {
+
+	/**
+	 * The method of the request for the HTML of an open document.
+	 */
+	static final String RENDER_HTML = "markdown/renderHtml";
 
 	private static final Logger LOG = LoggerFactory.getLogger(MarkdownTextDocumentService.class);
 
 	private final MarkdownService service;
 	private final BooleanSupplier shutDown;
 	private final DocumentValidator validator;
+	private final Executor renderer;
 	private final Map<String, OpenDocument> openDocuments = new ConcurrentHashMap<>();
 
 	/**
 	 * @param service the service to tell the contents of the open documents, not <code>null</code>
 	 * @param shutDown says whether the client asked the server to shut down, not <code>null</code>
 	 * @param validator validates the open documents, not <code>null</code>
+	 * @param renderer renders the documents, off the thread the notifications arrive on, not
+	 *                 <code>null</code>
 	 */
-	MarkdownTextDocumentService(MarkdownService service, BooleanSupplier shutDown, DocumentValidator validator) {
+	MarkdownTextDocumentService(MarkdownService service, BooleanSupplier shutDown, DocumentValidator validator,
+			Executor renderer) {
 		this.service = Objects.requireNonNull(service);
 		this.shutDown = Objects.requireNonNull(shutDown);
 		this.validator = Objects.requireNonNull(validator);
+		this.renderer = Objects.requireNonNull(renderer);
 	}
 
 	/**
@@ -139,6 +155,44 @@ final class MarkdownTextDocumentService implements TextDocumentService {
 			// the files the document refers to may have been saved along with it
 			this.validator.validateNow(uri, saved.resource(), saved.text(), saved.version());
 		}
+	}
+
+	/**
+	 * Renders an open document to HTML, from the text the client holds for it at the time the
+	 * request arrives.
+	 *
+	 * @return the HTML and the version of the text it was rendered from; fails with
+	 *         {@link ResponseErrorCode#RequestFailed} if the document is not open and with
+	 *         {@link ResponseErrorCode#InvalidRequest} once the client asked the server to shut down
+	 */
+	CompletableFuture<RenderHtmlResult> renderHtml(RenderHtmlParams params) {
+		if (this.shutDown.getAsBoolean()) {
+			return failure(ResponseErrorCode.InvalidRequest, "The server is shutting down.");
+		}
+		if (params == null || params.textDocument() == null || params.textDocument().getUri() == null) {
+			return failure(ResponseErrorCode.InvalidParams, "The document to be rendered is missing.");
+		}
+		String uri = params.textDocument().getUri();
+		OpenDocument document = this.openDocuments.get(uri);
+		if (document == null) {
+			return failure(ResponseErrorCode.RequestFailed, "The document " + uri + " is not open.");
+		}
+		return CompletableFuture.supplyAsync(() -> render(uri, document), this.renderer);
+	}
+
+	private RenderHtmlResult render(String uri, OpenDocument document) {
+		Resource resource = document.resource() != null ? document.resource() : UnresolvedResource.UNKNOWN_DOCUMENT;
+		try {
+			return new RenderHtmlResult(uri, document.version(),
+					this.service.parseMarkdownAndRenderHtml(document.text(), resource));
+		} catch (IllegalStateException serviceClosed) {
+			throw new ResponseErrorException(
+					new ResponseError(ResponseErrorCode.InvalidRequest, "The server is shutting down.", null));
+		}
+	}
+
+	private static <T> CompletableFuture<T> failure(ResponseErrorCode code, String message) {
+		return CompletableFuture.failedFuture(new ResponseErrorException(new ResponseError(code, message, null)));
 	}
 
 	/**

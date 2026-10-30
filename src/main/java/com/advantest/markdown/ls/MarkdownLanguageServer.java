@@ -10,6 +10,8 @@ import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import org.eclipse.lsp4j.InitializeParams;
@@ -18,6 +20,7 @@ import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.ServerInfo;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
+import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.eclipse.lsp4j.launch.LSPLauncher;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageClientAware;
@@ -46,6 +49,11 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 
 	private final MarkdownService service;
 	private final DocumentValidator validator;
+	private final ExecutorService renderer = Executors.newSingleThreadExecutor(task -> {
+		Thread thread = new Thread(task, "markdown-ls rendering");
+		thread.setDaemon(true);
+		return thread;
+	});
 	private final MarkdownTextDocumentService documents;
 	private final CompletableFuture<Future<Void>> listening = new CompletableFuture<>();
 	private volatile LanguageClient client;
@@ -54,7 +62,8 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 	private MarkdownLanguageServer(MarkdownService service) {
 		this.service = Objects.requireNonNull(service, "A server needs a service.");
 		this.validator = new DocumentValidator(service, this::publish, DocumentValidator.DELAY_AFTER_CHANGE);
-		this.documents = new MarkdownTextDocumentService(service, () -> this.shutdownRequested, this.validator);
+		this.documents = new MarkdownTextDocumentService(service, () -> this.shutdownRequested, this.validator,
+				this.renderer);
 	}
 
 	/**
@@ -146,12 +155,27 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 
 	private void closeService() {
 		this.validator.close();
+		// renderings already requested still end, with an error once the service is closed
+		this.renderer.shutdown();
 		this.service.close();
 	}
 
 	@Override
 	public TextDocumentService getTextDocumentService() {
 		return this.documents;
+	}
+
+	/**
+	 * Answers the request {@value MarkdownTextDocumentService#RENDER_HTML}: the HTML of an open document.
+	 *
+	 * <p>The request is declared here rather than on the document service, since LSP4J learns the
+	 * parameter types of the requests from the server's class.</p>
+	 *
+	 * @see MarkdownTextDocumentService#renderHtml(RenderHtmlParams)
+	 */
+	@JsonRequest(MarkdownTextDocumentService.RENDER_HTML)
+	public CompletableFuture<RenderHtmlResult> renderHtml(RenderHtmlParams params) {
+		return this.documents.renderHtml(params);
 	}
 
 	/**

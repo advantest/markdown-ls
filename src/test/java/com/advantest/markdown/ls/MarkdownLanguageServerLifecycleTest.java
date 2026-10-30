@@ -12,7 +12,6 @@ import java.io.IOException;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -20,13 +19,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.InitializedParams;
-import org.eclipse.lsp4j.MessageActionItem;
-import org.eclipse.lsp4j.MessageParams;
-import org.eclipse.lsp4j.PublishDiagnosticsParams;
-import org.eclipse.lsp4j.ShowMessageRequestParams;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.launch.LSPLauncher;
-import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -114,32 +108,5 @@ class MarkdownLanguageServerLifecycleTest {
 				.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 		this.server.initialized(new InitializedParams());
 		return result;
-	}
-
-	/**
-	 * A client that ignores everything the server tells it.
-	 */
-	private static final class SilentClient implements LanguageClient {
-
-		@Override
-		public void telemetryEvent(Object object) {
-		}
-
-		@Override
-		public void publishDiagnostics(PublishDiagnosticsParams diagnostics) {
-		}
-
-		@Override
-		public void showMessage(MessageParams messageParams) {
-		}
-
-		@Override
-		public CompletableFuture<MessageActionItem> showMessageRequest(ShowMessageRequestParams requestParams) {
-			return CompletableFuture.completedFuture(null);
-		}
-
-		@Override
-		public void logMessage(MessageParams message) {
-		}
 	}
 }

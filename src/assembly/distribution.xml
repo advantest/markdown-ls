@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The distribution: the server's jar, its dependencies in lib/ and the start scripts in bin/. -->
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.2.0"
+		xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.2.0 https://maven.apache.org/xsd/assembly-2.2.0.xsd">
+
+	<id>distribution</id>
+	<formats>
+		<format>zip</format>
+		<format>tar.gz</format>
+	</formats>
+	<baseDirectory>${project.artifactId}-${project.version}</baseDirectory>
+
+	<files>
+		<file>
+			<source>${project.build.directory}/${project.build.finalName}.jar</source>
+			<destName>markdown-ls.jar</destName>
+		</file>
+		<file>
+			<source>src/main/scripts/markdown-ls</source>
+			<outputDirectory>bin</outputDirectory>
+			<fileMode>0755</fileMode>
+			<lineEnding>unix</lineEnding>
+		</file>
+		<file>
+			<source>src/main/scripts/markdown-ls.cmd</source>
+			<outputDirectory>bin</outputDirectory>
+			<lineEnding>dos</lineEnding>
+		</file>
+		<file>
+			<source>README.md</source>
+		</file>
+	</files>
+
+	<dependencySets>
+		<dependencySet>
+			<outputDirectory>lib</outputDirectory>
+			<useProjectArtifact>false</useProjectArtifact>
+			<!-- The same names as in the Class-Path of the jar's manifest. -->
+			<outputFileNameMapping>${artifact.artifactId}-${artifact.baseVersion}${dashClassifier?}.${artifact.extension}</outputFileNameMapping>
+			<scope>runtime</scope>
+		</dependencySet>
+	</dependencySets>
+
+</assembly>

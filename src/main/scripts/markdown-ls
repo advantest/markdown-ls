@@ -1,0 +1,40 @@
+#!/bin/sh
+#
+# Copyright © 2026 Advantest Europe GmbH. All rights reserved.
+#
+# Starts markdown-ls with a Java 21 or newer, taken from
+#   1. the environment variable MARKDOWN_LS_JAVA, the path of a java executable,
+#   2. the environment variable JAVA_HOME,
+#   3. the PATH.
+# The environment variable MARKDOWN_LS_OPTS may hold further options for the Java VM.
+# The server speaks the protocol on standard input and output, so this script writes nothing there.
+
+script=$0
+while [ -h "$script" ]; do
+	link=$(ls -ld "$script" | sed 's/.*-> //')
+	case $link in
+		/*) script=$link ;;
+		*) script=$(dirname "$script")/$link ;;
+	esac
+done
+home=$(cd "$(dirname "$script")/.." && pwd -P)
+
+if [ -n "$MARKDOWN_LS_JAVA" ]; then
+	java=$MARKDOWN_LS_JAVA
+elif [ -n "$JAVA_HOME" ]; then
+	java=$JAVA_HOME/bin/java
+else
+	java=java
+fi
+
+classpath=$home/markdown-ls.jar:$home/lib/*
+case $(uname -s 2>/dev/null) in
+	CYGWIN* | MINGW* | MSYS*)
+		if command -v cygpath > /dev/null 2>&1; then
+			classpath=$(cygpath -wp "$classpath")
+		fi
+		;;
+esac
+
+# shellcheck disable=SC2086
+exec "$java" $MARKDOWN_LS_OPTS -cp "$classpath" com.advantest.markdown.ls.MarkdownLanguageServer "$@"

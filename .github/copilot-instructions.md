@@ -1,0 +1,41 @@
+# Custom instructions for this repository
+
+Instructions for GitHub Copilot when working in `markdown-ls`. They apply to every session in this
+repository, in addition to what a task asks for.
+
+## Committing
+
+- **One concern per commit.** A commit does one thing, and its message says that thing. If a change
+  brings an unrelated fix along, that fix goes into its own commit — a reader looking for it later
+  will not find it under a message that never mentions it.
+- **Separate a file rename from a change of its content.** A rename goes into its own commit, with
+  the file content untouched, so that git recognises it as a rename and every client shows it as
+  one. The change of the content follows in the next commit.
+- **Commit a rename on its own.** Renaming a type, a method or a field touches every place that uses
+  it, so a rename mixed with other work buries that work in noise. Where several things are renamed
+  at once, each rename gets its own commit, or at least a commit that holds nothing but renames.
+- **Say "rename" in the message of a rename commit**, and name the old and the new name. A reader
+  looking for the commit that turned one name into another searches for that word.
+- **Split first, run the tests afterwards.** Where a change falls into several commits — rename this,
+  extract that, then add the feature — the split is worth more than every single commit compiling.
+  Cut the change into its commits and let the test suite run over the result; a commit in the middle
+  of such a series is not expected to be green on its own.
+- Write the commit message as a conventional commit (`feat:`, `fix:`, `test:`, `docs:`, …) and in
+  whole sentences, saying what the commit achieves rather than which files it touches.
+- Limit the first line of a commit message, its title, to 72 characters.
+
+## Markdown files
+
+- Limit a line to 120 characters. A table is exempt where the syntax would otherwise break.
+- Align the columns of a table with spaces so that it is readable in the source as well.
+
+## Pushing
+
+Pushing a commit is the repository owner's business alone. Commit what the task asks for and leave
+the branch where it is: do not push it, do not open a pull request and do not ask to be allowed to.
+Whoever owns the repository decides when work leaves this machine and under which name it arrives.
+
+## This repository is open source
+
+The server must not depend on any closed-source library, neither at compile time nor at run time.
+Name only the repositories this one depends on, and never a closed-source one.

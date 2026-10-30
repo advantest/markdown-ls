@@ -83,6 +83,12 @@
 			<version>${lsp4j-version}</version>
 		</dependency>
 
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+			<version>${slf4j-version}</version>
+		</dependency>
+
 		<!-- The libraries write to the logging API, and the server, being the program, decides where
 		     the lines go: to the logging of the JDK, which LSP4J writes to as well and which writes
 		     to standard error. Standard output belongs to the protocol. -->

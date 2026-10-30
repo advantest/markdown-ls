@@ -5,8 +5,11 @@ package com.advantest.markdown.ls;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.util.Objects;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 import org.eclipse.lsp4j.InitializeParams;
@@ -20,6 +23,8 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.eclipse.lsp4j.services.WorkspaceService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.advantest.markdown.service.MarkdownService;
 
@@ -36,9 +41,12 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 
 	static final String NAME = "markdown-ls";
 
+	private static final Logger LOG = LoggerFactory.getLogger(MarkdownLanguageServer.class);
+
 	private final MarkdownService service;
 	private final CompletableFuture<Future<Void>> listening = new CompletableFuture<>();
 	private volatile LanguageClient client;
+	private volatile boolean shutdownRequested;
 
 	private MarkdownLanguageServer(MarkdownService service) {
 		this.service = Objects.requireNonNull(service, "A server needs a service.");
@@ -73,11 +81,33 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 	}
 
 	/**
-	 * Starts the server.
+	 * Starts the server as a program of its own, which speaks the protocol on standard input and
+	 * output and offers a service asking every web address a document names whether it is there.
+	 *
+	 * <p>Standard output belongs to the protocol, so everything else written to
+	 * {@link System#out} goes to standard error instead. The program ends when the client tells
+	 * the server to exit or when standard input ends, with exit code 0 if the client asked the
+	 * server to shut down before, and 1 otherwise.</p>
 	 *
 	 * @param args the command line arguments, none so far
 	 */
 	public static void main(String[] args) {
+		PrintStream protocolOut = System.out;
+		System.setOut(System.err);
+
+		MarkdownLanguageServer server = start(MarkdownService.builderCheckingUriReachability().build(),
+				System.in, protocolOut);
+		try {
+			server.listening.join().get();
+		} catch (CancellationException exitRequested) {
+			// the client told the server to exit
+		} catch (ExecutionException e) {
+			LOG.error("The server stopped listening to its client.", e.getCause());
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
+		server.service.close();
+		System.exit(server.shutdownRequested ? 0 : 1);
 	}
 
 	@Override
@@ -93,6 +123,7 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 
 	@Override
 	public CompletableFuture<Object> shutdown() {
+		this.shutdownRequested = true;
 		this.service.close();
 		return CompletableFuture.completedFuture(null);
 	}

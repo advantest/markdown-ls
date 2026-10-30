@@ -19,6 +19,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.InitializedParams;
+import org.eclipse.lsp4j.TextDocumentSyncKind;
+import org.eclipse.lsp4j.TextDocumentSyncOptions;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.launch.LSPLauncher;
 import org.eclipse.lsp4j.services.LanguageServer;
@@ -69,6 +71,16 @@ class MarkdownLanguageServerLifecycleTest {
 		InitializeResult result = initialize();
 
 		assertEquals(MarkdownLanguageServer.NAME, result.getServerInfo().getName());
+	}
+
+	@Test
+	void initializeOffersToKeepTheWholeTextOfTheDocuments() throws Exception {
+		InitializeResult result = initialize();
+
+		TextDocumentSyncOptions sync = result.getCapabilities().getTextDocumentSync().getRight();
+		assertTrue(sync.getOpenClose());
+		assertEquals(TextDocumentSyncKind.Full, sync.getChange());
+		assertFalse(sync.getSave().getRight().getIncludeText());
 	}
 
 	@Test

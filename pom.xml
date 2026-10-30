@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>com.advantest.markdown</groupId>
+	<artifactId>markdown-ls</artifactId>
+	<version>1.0.0-SNAPSHOT</version>
+
+	<name>Markdown language server</name>
+	<description>Offers the Markdown language service to editors through the Language Server Protocol</description>
+
+	<organization>
+		<name>Advantest Europe</name>
+		<url>https://www.advantest.com/</url>
+	</organization>
+
+	<properties>
+		<markdown-service-version>1.0.0-SNAPSHOT</markdown-service-version>
+		<lsp4j-version>1.0.0</lsp4j-version>
+		<gson-version>2.15.0</gson-version>
+		<error-prone-annotations-version>2.50.0</error-prone-annotations-version>
+		<java-version>21</java-version>
+		<junit-version>5.9.2</junit-version>
+		<slf4j-version>2.0.18</slf4j-version>
+		<jacoco-version>0.8.15</jacoco-version>
+
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+		<maven.compiler.source>${java-version}</maven.compiler.source>
+		<maven.compiler.target>${java-version}</maven.compiler.target>
+		<java.version>${java-version}</java.version>
+	</properties>
+
+	<repositories>
+		<repository>
+			<id>github-packages-flexmark</id>
+			<url>https://maven.pkg.github.com/advantest/flexmark-java</url>
+		</repository>
+		<repository>
+			<id>github-packages-flexmark-extensions</id>
+			<url>https://maven.pkg.github.com/advantest/flexmark-extensions</url>
+		</repository>
+		<repository>
+			<id>github-packages-markdown-core</id>
+			<url>https://maven.pkg.github.com/advantest/markdown-core</url>
+		</repository>
+		<repository>
+			<id>github-packages-markdown-service</id>
+			<url>https://maven.pkg.github.com/advantest/markdown-service</url>
+		</repository>
+	</repositories>
+
+	<dependencyManagement>
+		<dependencies>
+			<!-- LSP4J accepts any Gson from a range of versions, which would let the version used
+			     change from one build to the next. This one is fixed instead. -->
+			<dependency>
+				<groupId>com.google.code.gson</groupId>
+				<artifactId>gson</artifactId>
+				<version>${gson-version}</version>
+			</dependency>
+			<!-- Gson and Guava, which the Markdown service brings along, ask for different versions of
+			     these annotations. They are read by the compiler only, so the newer one serves both. -->
+			<dependency>
+				<groupId>com.google.errorprone</groupId>
+				<artifactId>error_prone_annotations</artifactId>
+				<version>${error-prone-annotations-version}</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
+	<dependencies>
+
+		<dependency>
+			<groupId>com.advantest.markdown</groupId>
+			<artifactId>markdown-service</artifactId>
+			<version>${markdown-service-version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.eclipse.lsp4j</groupId>
+			<artifactId>org.eclipse.lsp4j</artifactId>
+			<version>${lsp4j-version}</version>
+		</dependency>
+
+		<!-- The libraries write to the logging API, and the server, being the program, decides where
+		     the lines go: to the logging of the JDK, which LSP4J writes to as well and which writes
+		     to standard error. Standard output belongs to the protocol. -->
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-jdk14</artifactId>
+			<version>${slf4j-version}</version>
+		</dependency>
+
+		<!-- test dependencies -->
+
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-api</artifactId>
+			<version>${junit-version}</version>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-params</artifactId>
+			<version>${junit-version}</version>
+			<scope>test</scope>
+		</dependency>
+
+	</dependencies>
+
+	<build>
+		<plugins>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-enforcer-plugin</artifactId>
+				<version>3.6.2</version>
+				<executions>
+					<execution>
+						<id>enforce-versions</id>
+						<goals>
+							<goal>enforce</goal>
+						</goals>
+						<configuration>
+							<rules>
+								<requireMavenVersion>
+									<version>[3.9.0,4)</version>
+								</requireMavenVersion>
+								<requireJavaVersion>
+									<version>21</version>
+								</requireJavaVersion>
+								<dependencyConvergence/>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-resources-plugin</artifactId>
+				<version>3.3.1</version>
+				<configuration>
+					<propertiesEncoding>UTF-8</propertiesEncoding>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.13.0</version>
+				<configuration>
+					<release>21</release>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>3.1.2</version>
+				<dependencies>
+					<dependency>
+						<groupId>org.junit.jupiter</groupId>
+						<artifactId>junit-jupiter-engine</artifactId>
+						<version>${junit-version}</version>
+					</dependency>
+				</dependencies>
+			</plugin>
+
+			<!-- Measures how much of the code the tests reach, without judging the result. The
+			     report is written to target/site/jacoco/index.html. -->
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>${jacoco-version}</version>
+				<executions>
+					<execution>
+						<id>prepare-coverage-measurement</id>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>report-coverage</id>
+						<phase>test</phase>
+						<goals>
+							<goal>report</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+
+		</plugins>
+	</build>
+
+</project>

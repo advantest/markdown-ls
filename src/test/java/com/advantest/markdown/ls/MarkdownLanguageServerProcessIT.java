@@ -12,6 +12,8 @@ import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -42,9 +44,16 @@ class MarkdownLanguageServerProcessIT {
 
 	@BeforeEach
 	void startServer() throws IOException {
-		String java = ProcessHandle.current().info().command().orElseThrow();
-		this.process = new ProcessBuilder(java, "-cp", System.getProperty("java.class.path"),
-				MarkdownLanguageServer.class.getName())
+		List<String> command = new ArrayList<>();
+		command.add(ProcessHandle.current().info().command().orElseThrow());
+		// The build hands in the coverage agent here; started from elsewhere the option is absent.
+		String jvmOption = System.getProperty("markdown-ls.server-jvm-option", "");
+		if (!jvmOption.isBlank()) {
+			command.add(jvmOption);
+		}
+		command.addAll(List.of("-cp", System.getProperty("java.class.path"),
+				MarkdownLanguageServer.class.getName()));
+		this.process = new ProcessBuilder(command)
 				.redirectError(ProcessBuilder.Redirect.INHERIT)
 				.start();
 

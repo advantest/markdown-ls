@@ -16,6 +16,7 @@
 
 	<properties>
 		<markdown-service-version>1.0.0-SNAPSHOT</markdown-service-version>
+		<markdown-core-version>2.0.0-SNAPSHOT</markdown-core-version>
 		<lsp4j-version>1.0.0</lsp4j-version>
 		<gson-version>2.15.0</gson-version>
 		<error-prone-annotations-version>2.50.0</error-prone-annotations-version>
@@ -75,6 +76,12 @@
 			<groupId>com.advantest.markdown</groupId>
 			<artifactId>markdown-service</artifactId>
 			<version>${markdown-service-version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>com.advantest.markdown</groupId>
+			<artifactId>markdown-core</artifactId>
+			<version>${markdown-core-version}</version>
 		</dependency>
 
 		<dependency>

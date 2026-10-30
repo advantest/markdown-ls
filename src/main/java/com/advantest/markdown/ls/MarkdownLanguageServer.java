@@ -44,12 +44,14 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 	private static final Logger LOG = LoggerFactory.getLogger(MarkdownLanguageServer.class);
 
 	private final MarkdownService service;
+	private final MarkdownTextDocumentService documents;
 	private final CompletableFuture<Future<Void>> listening = new CompletableFuture<>();
 	private volatile LanguageClient client;
 	private volatile boolean shutdownRequested;
 
 	private MarkdownLanguageServer(MarkdownService service) {
 		this.service = Objects.requireNonNull(service, "A server needs a service.");
+		this.documents = new MarkdownTextDocumentService(service, () -> this.shutdownRequested);
 	}
 
 	/**
@@ -117,8 +119,9 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 
 	@Override
 	public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
-		return CompletableFuture.completedFuture(
-				new InitializeResult(new ServerCapabilities(), new ServerInfo(NAME)));
+		ServerCapabilities capabilities = new ServerCapabilities();
+		capabilities.setTextDocumentSync(MarkdownTextDocumentService.syncOptions());
+		return CompletableFuture.completedFuture(new InitializeResult(capabilities, new ServerInfo(NAME)));
 	}
 
 	@Override
@@ -134,12 +137,9 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 		this.listening.thenAccept(future -> future.cancel(true));
 	}
 
-	/**
-	 * The server offers no capability on documents yet, so it has no service for them.
-	 */
 	@Override
 	public TextDocumentService getTextDocumentService() {
-		return null;
+		return this.documents;
 	}
 
 	/**

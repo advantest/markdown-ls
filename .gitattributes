@@ -4,3 +4,6 @@
 # the repository, not to the machine.
 
 * text=auto eol=lf
+
+# A batch file is read by cmd.exe, which can lose its way in one with LF line endings.
+*.cmd text eol=crlf

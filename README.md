@@ -9,7 +9,8 @@ The server is a thin layer built with [LSP4J](https://github.com/eclipse-lsp4j/l
 between the protocol and the Java library `markdown-service`, which holds the language logic itself:
 parsing, validation, rendering and the like. The server adds what the protocol needs on top of that —
 the lifecycle, the synchronisation of the open documents, and the mapping of positions, ranges and
-document URIs.
+document URIs. [docs/protocol.md](docs/protocol.md) describes what the server offers of the protocol and
+the requests it adds to it, such as `markdown/renderHtml` for the HTML of a document.
 
 ## Requirements
 

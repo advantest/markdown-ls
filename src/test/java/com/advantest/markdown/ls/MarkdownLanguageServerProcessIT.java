@@ -25,10 +25,9 @@ import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializedParams;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
+import org.eclipse.lsp4j.TextDocumentIdentifier;
 import org.eclipse.lsp4j.TextDocumentItem;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
-import org.eclipse.lsp4j.launch.LSPLauncher;
-import org.eclipse.lsp4j.services.LanguageServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,7 +49,7 @@ class MarkdownLanguageServerProcessIT {
 	private Process process;
 	private RecordingInputStream serverOut;
 	private Future<Void> clientListening;
-	private LanguageServer server;
+	private MarkdownLanguageServerProxy server;
 
 	@BeforeEach
 	void startServer() throws IOException {
@@ -68,8 +67,8 @@ class MarkdownLanguageServerProcessIT {
 				.start();
 
 		this.serverOut = new RecordingInputStream(this.process.getInputStream());
-		Launcher<LanguageServer> client = LSPLauncher.createClientLauncher(this.client, this.serverOut,
-				this.process.getOutputStream());
+		Launcher<MarkdownLanguageServerProxy> client = MarkdownLanguageServerProxy.connect(this.client,
+				this.serverOut, this.process.getOutputStream());
 		this.clientListening = client.startListening();
 		this.server = client.getRemoteProxy();
 	}
@@ -115,6 +114,22 @@ class MarkdownLanguageServerProcessIT {
 		PublishDiagnosticsParams published = this.client.diagnostics.next();
 		assertEquals(uri, published.getUri());
 		assertEquals(1, published.getDiagnostics().size());
+	}
+
+	@Test
+	void answersTheHtmlOfAnOpenedDocument() throws Exception {
+		String uri = this.folder.resolve("document.md").toUri().toString();
+		this.server.initialize(new InitializeParams()).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		this.server.initialized(new InitializedParams());
+		this.server.getTextDocumentService().didOpen(new DidOpenTextDocumentParams(
+				new TextDocumentItem(uri, "markdown", 4, "# Title\n\nSome *text*\n")));
+
+		RenderHtmlResult result = this.server.renderHtml(new RenderHtmlParams(new TextDocumentIdentifier(uri)))
+				.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+		assertEquals(uri, result.uri());
+		assertEquals(4, result.version());
+		assertTrue(result.html().contains("<em"), result.html());
 	}
 
 	private int awaitExitCode() throws InterruptedException {

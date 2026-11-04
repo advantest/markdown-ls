@@ -39,6 +39,7 @@ import com.advantest.markdown.service.MarkdownService;
  * <p>The server is given its service and owns it from then on: it closes the service when the
  * client asks it to shut down, or when the client tells it to exit without having asked that.
  * {@link #launch(MarkdownService, InputStream, OutputStream)} starts a server on any two streams;
+ * {@link #serve(MarkdownService, InputStream, OutputStream)} serves a client on them until it ends;
  * {@link #main(String[])} starts one as a program of its own.</p>
  */
 public final class MarkdownLanguageServer implements LanguageServer, LanguageClientAware {
@@ -95,22 +96,22 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 	}
 
 	/**
-	 * Starts the server as a program of its own, which speaks the protocol on standard input and
-	 * output and offers a service asking every web address a document names whether it is there.
+	 * Serves a client, which writes its messages to one stream and reads the server's from the other,
+	 * until it tells the server to exit or the input ends, then closes the service and answers the
+	 * exit code: 0 if the client asked the server to shut down before, 1 otherwise.
 	 *
-	 * <p>Standard output belongs to the protocol, so everything else written to
-	 * {@link System#out} goes to standard error instead. The program ends when the client tells
-	 * the server to exit or when standard input ends, with exit code 0 if the client asked the
-	 * server to shut down before, and 1 otherwise.</p>
+	 * <p>The server owns the given service from now on and closes it. The streams are not closed by
+	 * the server, except that the input is when the client tells the server to exit. If the thread
+	 * serving is interrupted, the server stops serving, closes the service and keeps the thread's
+	 * interrupt status set.</p>
 	 *
-	 * @param args the command line arguments, none so far
+	 * @param service the service the server offers, not <code>null</code>
+	 * @param in the stream the client's messages arrive on, not <code>null</code>
+	 * @param out the stream the server's messages are written to, not <code>null</code>
+	 * @return the exit code, 0 if the client asked the server to shut down before it ended, 1 otherwise
 	 */
-	public static void main(String[] args) {
-		PrintStream protocolOut = System.out;
-		System.setOut(System.err);
-
-		MarkdownLanguageServer server = start(MarkdownService.builderCheckingUriReachability().build(),
-				System.in, protocolOut);
+	public static int serve(MarkdownService service, InputStream in, OutputStream out) {
+		MarkdownLanguageServer server = start(service, in, out);
 		try {
 			server.listening.join().get();
 		} catch (CancellationException exitRequested) {
@@ -121,7 +122,25 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 			Thread.currentThread().interrupt();
 		}
 		server.closeService();
-		System.exit(server.shutdownRequested ? 0 : 1);
+		return server.shutdownRequested ? 0 : 1;
+	}
+
+	/**
+	 * Starts the server as a program of its own, which speaks the protocol on standard input and
+	 * output and offers a service asking every web address a document names whether it is there.
+	 *
+	 * <p>Standard output belongs to the protocol, so everything else written to
+	 * {@link System#out} goes to standard error instead. The program ends when the client tells
+	 * the server to exit or when standard input ends, with exit code 0 if the client asked the
+	 * server to shut down before, and 1 otherwise.</p>
+	 *
+	 * @param args the command line arguments, none so far
+	 * @see #serve(MarkdownService, InputStream, OutputStream)
+	 */
+	public static void main(String[] args) {
+		PrintStream protocolOut = System.out;
+		System.setOut(System.err);
+		System.exit(serve(MarkdownService.builderCheckingUriReachability().build(), System.in, protocolOut));
 	}
 
 	@Override

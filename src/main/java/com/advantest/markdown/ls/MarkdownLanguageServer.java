@@ -137,7 +137,17 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 	public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
 		ServerCapabilities capabilities = new ServerCapabilities();
 		capabilities.setTextDocumentSync(MarkdownTextDocumentService.syncOptions());
-		return CompletableFuture.completedFuture(new InitializeResult(capabilities, new ServerInfo(NAME)));
+		return CompletableFuture.completedFuture(new InitializeResult(capabilities, new ServerInfo(NAME, version())));
+	}
+
+	/**
+	 * Answers the server's version, which its JAR's manifest names.
+	 *
+	 * @return the version, <code>null</code> if the server runs from classes without a manifest, e.g.
+	 *         in a test, in which case the client is told no version
+	 */
+	static String version() {
+		return MarkdownLanguageServer.class.getPackage().getImplementationVersion();
 	}
 
 	@Override

@@ -278,6 +278,8 @@
 							<addClasspath>true</addClasspath>
 							<classpathPrefix>lib/</classpathPrefix>
 							<useUniqueVersions>false</useUniqueVersions>
+							<!-- Implementation-Version names the version the server answers on initialize. -->
+							<addDefaultImplementationEntries>true</addDefaultImplementationEntries>
 						</manifest>
 					</archive>
 				</configuration>

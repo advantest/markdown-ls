@@ -3,6 +3,17 @@
 markdown-ls speaks the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/)
 3.17. This page describes what it offers of it and the requests it adds.
 
+## Versioning
+
+markdown-ls is versioned semantically. Its contract is what it adds to standard LSP: its own requests,
+notifications and settings, such as `markdown/renderHtml`. A change that breaks this contract raises the
+major version, an addition raises the minor version, and anything else only the patch version. A client
+can therefore tell from the version alone whether it can use a server.
+
+The server names its version in the `Implementation-Version` of its JAR's manifest and in the
+`serverInfo` of its answer to `initialize`. Run from classes without a manifest, as in its own tests, it
+names no version there.
+
 ## Documents
 
 The server keeps the whole text of every document the client has open (`textDocumentSync`: open and close,

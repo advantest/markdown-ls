@@ -190,6 +190,7 @@
 				<configuration>
 					<systemPropertyVariables>
 						<markdown-ls.server-jvm-option>${serverJacocoAgent}</markdown-ls.server-jvm-option>
+						<markdown-ls.version>${project.version}</markdown-ls.version>
 					</systemPropertyVariables>
 				</configuration>
 				<dependencies>

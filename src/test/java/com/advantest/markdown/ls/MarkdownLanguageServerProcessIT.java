@@ -4,6 +4,7 @@
 package com.advantest.markdown.ls;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -23,6 +24,7 @@ import java.util.regex.Pattern;
 
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
 import org.eclipse.lsp4j.InitializeParams;
+import org.eclipse.lsp4j.InitializeResult;
 import org.eclipse.lsp4j.InitializedParams;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.TextDocumentIdentifier;
@@ -99,6 +101,18 @@ class MarkdownLanguageServerProcessIT {
 		this.server.exit();
 
 		assertEquals(1, awaitExitCode());
+	}
+
+	@Test
+	void namesTheVersionOfItsJarOnInitialize() throws Exception {
+		String expected = System.getProperty("markdown-ls.version");
+		assertNotNull(expected, "The build hands in the version the JAR is expected to name.");
+
+		InitializeResult result = this.server.initialize(new InitializeParams())
+				.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+		assertEquals(MarkdownLanguageServer.NAME, result.getServerInfo().getName());
+		assertEquals(expected, result.getServerInfo().getVersion());
 	}
 
 	@Test

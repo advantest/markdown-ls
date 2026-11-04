@@ -29,6 +29,14 @@ repository, in addition to what a task asks for.
 - Limit a line to 120 characters. A table is exempt where the syntax would otherwise break.
 - Align the columns of a table with spaces so that it is readable in the source as well.
 
+## Versioning
+
+- **Version the server semantically.** The contract is what the server adds to standard LSP: its own
+  requests, notifications and settings, as `docs/protocol.md` describes them. A change that breaks
+  this contract raises the major version, an addition to it raises the minor version, and everything
+  else only the patch version. A change of the contract updates `docs/protocol.md` in the same task.
+  The reason: clients decide from the version alone whether they can start a server.
+
 ## Pushing
 
 Pushing a commit is the repository owner's business alone. Commit what the task asks for and leave

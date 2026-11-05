@@ -18,6 +18,8 @@ import java.util.concurrent.RejectedExecutionException;
 
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
+import org.eclipse.lsp4j.MessageParams;
+import org.eclipse.lsp4j.MessageType;
 import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.ServerInfo;
@@ -64,6 +66,8 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 	});
 	private final MarkdownTextDocumentService documents;
 	private final List<Library> furtherLibraries;
+	private final DotExecutableSetting dotExecutable = new DotExecutableSetting();
+	private final MarkdownWorkspaceService workspace = new MarkdownWorkspaceService(this::useDotExecutable);
 	private final CompletableFuture<Future<Void>> listening = new CompletableFuture<>();
 	private volatile LanguageClient client;
 	private volatile boolean shutdownRequested;
@@ -183,6 +187,8 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 
 	@Override
 	public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
+		DotExecutableSetting.fromInitializationOptions(params.getInitializationOptions())
+				.ifPresent(this::useDotExecutable);
 		ServerCapabilities capabilities = new ServerCapabilities();
 		capabilities.setTextDocumentSync(MarkdownTextDocumentService.syncOptions());
 		return CompletableFuture.completedFuture(new InitializeResult(capabilities, new ServerInfo(NAME, version())));
@@ -257,10 +263,21 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 	}
 
 	/**
-	 * The server offers no capability on the workspace yet, so it has no service for it.
+	 * Names the Graphviz <code>dot</code> executable PlantUML runs, as the user set it, and tells the
+	 * user if nothing can be run there, in which case the executable in effect stays.
 	 */
+	private void useDotExecutable(String path) {
+		try {
+			this.dotExecutable.apply(path);
+		} catch (IllegalArgumentException e) {
+			LOG.warn("The Graphviz dot executable was not changed.", e);
+			this.client.showMessage(new MessageParams(MessageType.Warning, e.getMessage()
+					+ " PlantUML keeps running the Graphviz it ran before."));
+		}
+	}
+
 	@Override
 	public WorkspaceService getWorkspaceService() {
-		return null;
+		return this.workspace;
 	}
 }

@@ -6,6 +6,7 @@ package com.advantest.markdown.ls;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -13,6 +14,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializeResult;
@@ -20,6 +22,9 @@ import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.ServerCapabilities;
 import org.eclipse.lsp4j.ServerInfo;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
+import org.eclipse.lsp4j.jsonrpc.ResponseErrorException;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseError;
+import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest;
 import org.eclipse.lsp4j.launch.LSPLauncher;
 import org.eclipse.lsp4j.services.LanguageClient;
@@ -45,6 +50,8 @@ import com.advantest.markdown.service.MarkdownService;
 public final class MarkdownLanguageServer implements LanguageServer, LanguageClientAware {
 
 	static final String NAME = "markdown-ls";
+
+	static final String ENVIRONMENT = "markdown/environment";
 
 	private static final Logger LOG = LoggerFactory.getLogger(MarkdownLanguageServer.class);
 
@@ -205,6 +212,26 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 	@JsonRequest(MarkdownTextDocumentService.RENDER_HTML)
 	public CompletableFuture<RenderHtmlResult> renderHtml(RenderHtmlParams params) {
 		return this.documents.renderHtml(params);
+	}
+
+	/**
+	 * Answers the request {@value #ENVIRONMENT}: the libraries the server runs on and how PlantUML is
+	 * set up, asked on the thread rendering, since Graphviz is run to learn its version.
+	 *
+	 * @return the environment, or an error with the code <code>InvalidRequest</code> once the client
+	 *         asked the server to shut down
+	 */
+	@JsonRequest(ENVIRONMENT)
+	public CompletableFuture<Environment> environment() {
+		try {
+			if (!this.shutdownRequested) {
+				return CompletableFuture.supplyAsync(() -> Environment.describe(List.of()), this.renderer);
+			}
+		} catch (RejectedExecutionException shutDownMeanwhile) {
+			// answered below like a request arriving after shutdown
+		}
+		return CompletableFuture.failedFuture(new ResponseErrorException(new ResponseError(
+				ResponseErrorCode.InvalidRequest, "The server is shut down.", null)));
 	}
 
 	/**

@@ -207,11 +207,27 @@ final class MarkdownTextDocumentService implements TextDocumentService {
 				LOG.debug("The document {} is no file, so the service is not told about it.", uri);
 				return null;
 			}
-			return LocalFileSystemResource.of(Path.of(parsed));
+			return LocalFileSystemResource.of(withUpperCaseDriveLetter(Path.of(parsed)));
 		} catch (IllegalArgumentException e) {
 			LOG.warn("The document {} has a URI that names no file.", uri, e);
 			return null;
 		}
+	}
+
+	/**
+	 * Answers the given path with its Windows drive letter in upper case, as the service sees a file it
+	 * is given directly. Clients such as VS Code write the drive letter of a URI in lower case, which
+	 * would otherwise show in every message naming a path resolved from the document.
+	 *
+	 * @param path a path, not <code>null</code>
+	 * @return the path with an upper case drive letter, or the path itself if it starts with none
+	 */
+	static Path withUpperCaseDriveLetter(Path path) {
+		String text = path.toString();
+		if (text.length() < 2 || text.charAt(1) != ':' || text.charAt(0) < 'a' || text.charAt(0) > 'z') {
+			return path;
+		}
+		return path.getFileSystem().getPath(Character.toUpperCase(text.charAt(0)) + text.substring(1));
 	}
 
 	/**

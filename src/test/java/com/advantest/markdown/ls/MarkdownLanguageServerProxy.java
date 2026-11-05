@@ -22,6 +22,9 @@ interface MarkdownLanguageServerProxy extends LanguageServer {
 	@JsonRequest(MarkdownTextDocumentService.RENDER_HTML)
 	CompletableFuture<RenderHtmlResult> renderHtml(RenderHtmlParams params);
 
+	@JsonRequest(MarkdownLanguageServer.ENVIRONMENT)
+	CompletableFuture<Environment> environment();
+
 	/**
 	 * Connects the given client to a server reading from <code>in</code> and writing to
 	 * <code>out</code>.

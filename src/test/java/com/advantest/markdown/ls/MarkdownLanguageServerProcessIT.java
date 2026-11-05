@@ -146,6 +146,18 @@ class MarkdownLanguageServerProcessIT {
 		assertTrue(result.html().contains("<em"), result.html());
 	}
 
+	@Test
+	void namesItsLibrariesWithTheVersionOfItsJar() throws Exception {
+		this.server.initialize(new InitializeParams()).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		this.server.initialized(new InitializedParams());
+
+		Environment environment = this.server.environment().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+		assertEquals(new Library(MarkdownLanguageServer.NAME, System.getProperty("markdown-ls.version")),
+				environment.libraries().get(0));
+		assertNotNull(environment.plantUml().securityProfile());
+	}
+
 	private int awaitExitCode() throws InterruptedException {
 		assertTrue(this.process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS), "The server did not end.");
 		return this.process.exitValue();

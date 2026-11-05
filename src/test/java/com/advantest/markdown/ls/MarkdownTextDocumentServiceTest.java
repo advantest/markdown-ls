@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -16,6 +17,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -42,6 +44,8 @@ import org.eclipse.lsp4j.jsonrpc.messages.ResponseErrorCode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.advantest.markdown.service.MarkdownService;
@@ -333,6 +337,66 @@ class MarkdownTextDocumentServiceTest {
 		this.service.close();
 
 		assertError(ResponseErrorCode.InvalidRequest, this.documents.renderHtml(paramsFor(uriOf(this.target))));
+	}
+
+	@Test
+	void aLowerCaseDriveLetterIsUpperCased() {
+		assertEquals(Path.of("C:", "docs", "a.md"),
+				MarkdownTextDocumentService.withUpperCaseDriveLetter(Path.of("c:", "docs", "a.md")));
+	}
+
+	@Test
+	void aPathWithoutALowerCaseDriveLetterIsKept() {
+		for (Path path : List.of(Path.of("C:", "docs"), Path.of("docs", "a.md"), Path.of("a"))) {
+			assertSame(path, MarkdownTextDocumentService.withUpperCaseDriveLetter(path), path.toString());
+		}
+	}
+
+	@Test
+	@EnabledOnOs(OS.WINDOWS)
+	void aFileUriWithALowerCaseDriveLetterIsValidatedAsTheFileItself() throws Exception {
+		String text = "[Missing](missing.md)\n";
+		Path file = Files.writeString(this.folder.resolve("missing-link.md"), text);
+		String uri = uriWithLowerCaseDriveLetterOf(file);
+
+		open(uri, text);
+
+		PublishDiagnosticsParams diagnostics = this.published.next();
+		assertEquals(uri, diagnostics.getUri());
+		List<String> expected = this.service.validateMarkdown(text, LocalFileSystemResource.of(file)).stream()
+				.map(ValidationIssue::message)
+				.toList();
+		List<String> messages = diagnostics.getDiagnostics().stream()
+				.map(diagnostic -> diagnostic.getMessage().getLeft())
+				.toList();
+		assertEquals(1, expected.size(), expected.toString());
+		assertEquals(expected, messages);
+	}
+
+	@Test
+	@EnabledOnOs(OS.WINDOWS)
+	void aFileUriWithALowerCaseDriveLetterIsRenderedAsTheFileItself() throws Exception {
+		String text = "![Diagram](missing.puml)\n";
+		Path file = Files.writeString(this.folder.resolve("missing-diagram.md"), text);
+		String uri = uriWithLowerCaseDriveLetterOf(file);
+		open(uri, text);
+
+		RenderHtmlResult result = renderHtml(uri);
+
+		assertEquals(uri, result.uri());
+		String expected = this.service.parseMarkdownAndRenderHtml(text, LocalFileSystemResource.of(file));
+		assertTrue(expected.contains(this.folder.toString()), "The HTML names the resolved path: " + expected);
+		assertEquals(expected, result.html());
+	}
+
+	/**
+	 * Answers the URI of the given file as VS Code writes it: with the drive letter in lower case and
+	 * its colon escaped.
+	 */
+	private static String uriWithLowerCaseDriveLetterOf(Path file) {
+		String uri = uriOf(file);
+		String drive = uri.substring("file:///".length(), "file:///".length() + 1);
+		return "file:///" + drive.toLowerCase(Locale.ROOT) + "%3A" + uri.substring("file:///C:".length());
 	}
 
 	private RenderHtmlResult renderHtml(String uri) throws Exception {

@@ -63,12 +63,14 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 		return thread;
 	});
 	private final MarkdownTextDocumentService documents;
+	private final List<Library> furtherLibraries;
 	private final CompletableFuture<Future<Void>> listening = new CompletableFuture<>();
 	private volatile LanguageClient client;
 	private volatile boolean shutdownRequested;
 
-	private MarkdownLanguageServer(MarkdownService service) {
+	private MarkdownLanguageServer(MarkdownService service, List<Library> furtherLibraries) {
 		this.service = Objects.requireNonNull(service, "A server needs a service.");
+		this.furtherLibraries = List.copyOf(furtherLibraries);
 		this.validator = new DocumentValidator(service, this::publish, DocumentValidator.DELAY_AFTER_CHANGE);
 		this.documents = new MarkdownTextDocumentService(service, () -> this.shutdownRequested, this.validator,
 				this.renderer);
@@ -89,13 +91,15 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 	 * @return the server's listening, which ends when the server does
 	 */
 	public static Future<Void> launch(MarkdownService service, InputStream in, OutputStream out) {
-		return start(service, in, out).listening.join();
+		return start(service, List.of(), in, out).listening.join();
 	}
 
-	private static MarkdownLanguageServer start(MarkdownService service, InputStream in, OutputStream out) {
+	private static MarkdownLanguageServer start(MarkdownService service, List<Library> furtherLibraries,
+			InputStream in, OutputStream out) {
+		Objects.requireNonNull(furtherLibraries, "A server needs a list of further libraries, if an empty one.");
 		Objects.requireNonNull(in, "A server needs a stream to read from.");
 		Objects.requireNonNull(out, "A server needs a stream to write to.");
-		MarkdownLanguageServer server = new MarkdownLanguageServer(service);
+		MarkdownLanguageServer server = new MarkdownLanguageServer(service, furtherLibraries);
 		Launcher<LanguageClient> launcher = LSPLauncher.createServerLauncher(server, in, out);
 		server.connect(launcher.getRemoteProxy());
 		server.listening.complete(launcher.startListening());
@@ -116,9 +120,27 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 	 * @param in the stream the client's messages arrive on, not <code>null</code>
 	 * @param out the stream the server's messages are written to, not <code>null</code>
 	 * @return the exit code, 0 if the client asked the server to shut down before it ended, 1 otherwise
+	 * @see #serve(MarkdownService, List, InputStream, OutputStream)
 	 */
 	public static int serve(MarkdownService service, InputStream in, OutputStream out) {
-		MarkdownLanguageServer server = start(service, in, out);
+		return serve(service, List.of(), in, out);
+	}
+
+	/**
+	 * Serves a client as {@link #serve(MarkdownService, InputStream, OutputStream)} does, and names
+	 * further libraries in the answer to <code>markdown/environment</code>, after the server's own: those
+	 * a launcher adds, e.g. the ones its service is built from.
+	 *
+	 * @param service the service the server offers, not <code>null</code>
+	 * @param furtherLibraries the libraries to name after the server's own, in this order, not
+	 *        <code>null</code>
+	 * @param in the stream the client's messages arrive on, not <code>null</code>
+	 * @param out the stream the server's messages are written to, not <code>null</code>
+	 * @return the exit code, 0 if the client asked the server to shut down before it ended, 1 otherwise
+	 */
+	public static int serve(MarkdownService service, List<Library> furtherLibraries, InputStream in,
+			OutputStream out) {
+		MarkdownLanguageServer server = start(service, furtherLibraries, in, out);
 		try {
 			server.listening.join().get();
 		} catch (CancellationException exitRequested) {
@@ -225,7 +247,7 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 	public CompletableFuture<Environment> environment() {
 		try {
 			if (!this.shutdownRequested) {
-				return CompletableFuture.supplyAsync(() -> Environment.describe(List.of()), this.renderer);
+				return CompletableFuture.supplyAsync(() -> Environment.describe(this.furtherLibraries), this.renderer);
 			}
 		} catch (RejectedExecutionException shutDownMeanwhile) {
 			// answered below like a request arriving after shutdown

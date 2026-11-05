@@ -62,3 +62,77 @@ Errors:
 | `RequestFailed` (-32803)  | the document is not open                     |
 | `InvalidParams` (-32602)  | the request names no document                |
 | `InvalidRequest` (-32600) | the client has asked the server to shut down |
+
+## `markdown/environment`
+
+A request from the client for the libraries the server runs on and for how PlantUML is set up, e.g. to show
+them to the user. It has no parameters.
+
+Result:
+
+```json
+{
+  "libraries": [
+    { "name": "markdown-ls", "version": "1.0.0" },
+    { "name": "markdown-service", "version": "1.0.0" },
+    { "name": "markdown-core", "version": "2.0.0" },
+    { "name": "flexmark-extensions", "version": "2.0.0" },
+    { "name": "flexmark", "version": "0.65.3" },
+    { "name": "PlantUML", "version": "1.2026.3" }
+  ],
+  "plantUml": {
+    "version": "1.2026.3",
+    "securityProfile": "ALLOWLIST",
+    "urlAllowList": [ "https://example.com/" ],
+    "dotExecutable": "C:\\Program Files\\Graphviz\\bin\\dot.exe",
+    "graphvizVersion": "12.2.1"
+  }
+}
+```
+
+| Field                      | Meaning                                                                         |
+|----------------------------|---------------------------------------------------------------------------------|
+| `libraries`                | the libraries in this order, followed by those a launcher adds, e.g. the ones   |
+|                            | its service is built from                                                       |
+| `libraries[].version`      | the library's version, `unknown` where it cannot be told, e.g. for markdown-ls  |
+|                            | run from classes without a manifest                                             |
+| `plantUml.version`         | the version of PlantUML                                                         |
+| `plantUml.securityProfile` | PlantUML's security profile; the server shows it, it never changes it           |
+| `plantUml.urlAllowList`    | the web addresses PlantUML may read from, empty if none                         |
+| `plantUml.dotExecutable`   | the Graphviz `dot` executable PlantUML runs, missing or `null` if none is found |
+| `plantUml.graphvizVersion` | the version of that Graphviz, missing or `null` if it cannot be run             |
+
+The server runs Graphviz to learn its version, so it answers on its rendering thread, after the renderings
+requested before. The answer reflects the `dot` executable in effect at that time.
+
+Errors:
+
+| Code                      | When                                         |
+|---------------------------|----------------------------------------------|
+| `InvalidRequest` (-32600) | the client has asked the server to shut down |
+
+## Settings
+
+The client may send the settings below in the `initializationOptions` of `initialize`, without the
+section `markdownSupport`, and on a change with `workspace/didChangeConfiguration`, inside it:
+
+```json
+{ "plantUml": { "dotExecutable": "C:\\Program Files\\Graphviz\\bin\\dot.exe" } }
+```
+
+```json
+{ "settings": { "markdownSupport": { "plantUml": { "dotExecutable": "" } } } }
+```
+
+The server ignores any other key in the section.
+
+| Setting                                    | Meaning                                                           |
+|--------------------------------------------|-------------------------------------------------------------------|
+| `markdownSupport.plantUml.dotExecutable`   | the Graphviz `dot` executable PlantUML runs; an empty string, or  |
+|                                            | `null`, means none is set, in which case the server runs the one  |
+|                                            | the environment variable `GRAPHVIZ_DOT` names, else the one it    |
+|                                            | finds where Graphviz is usually installed                         |
+
+A message lacking the setting leaves the executable as it is. If the server cannot run anything at the
+path given, it keeps the executable it ran before and tells the user with `window/showMessage`, a warning
+naming the path.

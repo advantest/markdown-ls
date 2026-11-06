@@ -11,8 +11,10 @@ major version, an addition raises the minor version, and anything else only the 
 can therefore tell from the version alone whether it can use a server.
 
 The server names its version in the `Implementation-Version` of its JAR's manifest and in the
-`serverInfo` of its answer to `initialize`. Run from classes without a manifest, as in its own tests, it
-names no version there.
+`serverInfo` of its answer to `initialize`. It reads the version from the resource
+`META-INF/com.advantest.markdown/markdown-ls/version.properties`, which the build writes into its class
+folder as well, so the server names its version when run from classes, too. Where the resource cannot be
+read, it names no version.
 
 ## Documents
 
@@ -94,8 +96,7 @@ Result:
 |----------------------------|---------------------------------------------------------------------------------|
 | `libraries`                | the libraries in this order, followed by those a launcher adds, e.g. the ones   |
 |                            | its service is built from                                                       |
-| `libraries[].version`      | the library's version, `unknown` where it cannot be told, e.g. for markdown-ls  |
-|                            | run from classes without a manifest                                             |
+| `libraries[].version`      | the library's version, `unknown` where the library does not tell it             |
 | `plantUml.version`         | the version of PlantUML                                                         |
 | `plantUml.securityProfile` | PlantUML's security profile; the server shows it, it never changes it           |
 | `plantUml.urlAllowList`    | the web addresses PlantUML may read from, empty if none                         |

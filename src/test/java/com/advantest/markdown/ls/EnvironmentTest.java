@@ -5,6 +5,7 @@ package com.advantest.markdown.ls;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -37,18 +38,22 @@ class EnvironmentTest {
 	}
 
 	@Test
-	void theVersionOfTheServerIsUnknownWhenItRunsFromClassesWithoutManifest() {
-		assertEquals(new Library("markdown-ls", Environment.UNKNOWN_VERSION), library("markdown-ls"));
+	void theServerNamesTheVersionOfItsBuild() {
+		assertEquals(new Library("markdown-ls", expected("markdown-ls.version")), library("markdown-ls"));
 	}
 
+	/**
+	 * markdown-core and markdown-service once carried their versions in resources of the same name, so
+	 * on one class path one hid the other; each library now answers the version of its own.
+	 */
 	@Test
-	void everyLibraryTheServerRunsOnNamesItsVersion() {
-		for (String name : List.of("markdown-service", "markdown-core", "flexmark-extensions", "flexmark",
-				"PlantUML")) {
-			String version = library(name).version();
-			assertTrue(version.matches("\\d+\\.\\d+.*"), name + " names no version: " + version);
-		}
+	void everyLibraryNamesTheVersionThatRuns() {
+		assertEquals(expected("markdown-service.version"), library("markdown-service").version());
+		assertEquals(expected("markdown-core.version"), library("markdown-core").version());
+		assertEquals(expected("flexmark-extensions.version"), library("flexmark-extensions").version());
+		assertEquals(expected("flexmark.version"), library("flexmark").version());
 		assertEquals(MarkdownCoreInfo.getPlantUmlVersion(), library("PlantUML").version());
+		assertTrue(library("PlantUML").version().matches("\\d+\\.\\d+.*"));
 	}
 
 	@Test
@@ -75,6 +80,12 @@ class EnvironmentTest {
 				.filter(library -> library.name().equals(name))
 				.findFirst()
 				.orElseThrow();
+	}
+
+	private static String expected(String property) {
+		String version = System.getProperty(property);
+		assertNotNull(version, "The build names the version it expects in " + property + ".");
+		return version;
 	}
 
 	private static String orNull(String text) {

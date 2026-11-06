@@ -5,7 +5,6 @@ package com.advantest.markdown.ls;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -75,10 +74,10 @@ class MarkdownLanguageServerLifecycleTest {
 	}
 
 	@Test
-	void initializeNamesNoVersionWhenTheServerRunsFromClassesWithoutManifest() throws Exception {
+	void initializeNamesTheVersionOfTheBuild() throws Exception {
 		InitializeResult result = initialize();
 
-		assertNull(result.getServerInfo().getVersion());
+		assertEquals(System.getProperty("markdown-ls.version"), result.getServerInfo().getVersion());
 	}
 
 	@Test

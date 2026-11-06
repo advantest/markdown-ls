@@ -195,13 +195,13 @@ public final class MarkdownLanguageServer implements LanguageServer, LanguageCli
 	}
 
 	/**
-	 * Answers the server's version, which its JAR's manifest names.
+	 * Answers the server's version, which the build writes into a resource of the server.
 	 *
-	 * @return the version, <code>null</code> if the server runs from classes without a manifest, e.g.
-	 *         in a test, in which case the client is told no version
+	 * @return the version, <code>null</code> if it cannot be read, in which case the client is told no
+	 *         version
 	 */
 	static String version() {
-		return MarkdownLanguageServer.class.getPackage().getImplementationVersion();
+		return MarkdownLsInfo.getVersion();
 	}
 
 	@Override

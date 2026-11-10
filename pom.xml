@@ -243,6 +243,8 @@
 					<systemPropertyVariables>
 						<markdown-ls.server-jvm-option>${serverJacocoAgent}</markdown-ls.server-jvm-option>
 						<markdown-ls.version>${project.version}</markdown-ls.version>
+						<markdown-ls.build-directory>${project.build.directory}</markdown-ls.build-directory>
+						<markdown-ls.local-repository>${settings.localRepository}</markdown-ls.local-repository>
 					</systemPropertyVariables>
 				</configuration>
 				<dependencies>

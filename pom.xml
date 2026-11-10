@@ -470,6 +470,80 @@
 				</executions>
 			</plugin>
 
+			<!-- A CycloneDX software bill of materials of the server and the components it ships,
+			     target/bom.json, which the distribution carries. The plugin needs the network and skips
+			     an offline build, which therefore fails when packaging. -->
+			<plugin>
+				<groupId>org.cyclonedx</groupId>
+				<artifactId>cyclonedx-maven-plugin</artifactId>
+				<version>2.9.3</version>
+				<executions>
+					<execution>
+						<id>software-bill-of-materials</id>
+						<phase>package</phase>
+						<goals>
+							<goal>makeBom</goal>
+						</goals>
+						<configuration>
+							<projectType>application</projectType>
+							<outputFormat>json</outputFormat>
+							<outputName>bom</outputName>
+							<includeCompileScope>true</includeCompileScope>
+							<includeRuntimeScope>true</includeRuntimeScope>
+							<includeProvidedScope>false</includeProvidedScope>
+							<includeSystemScope>false</includeSystemScope>
+							<includeTestScope>false</includeTestScope>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
+			<!-- The SBOM takes the licences from the POMs of the components, two of which name them
+			     imprecisely: PlantUML names the GPL without its version, which its source states as
+			     3 or later, and jlatexmath names the GPL 2 only with the Classpath exception, while its
+			     source allows any later version. Both are corrected to the SPDX expressions THIRD-PARTY.txt
+			     names, and the build fails where one of the imprecise licences remains. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-antrun-plugin</artifactId>
+				<version>3.1.0</version>
+				<executions>
+					<execution>
+						<id>correct-sbom-licences</id>
+						<phase>package</phase>
+						<goals>
+							<goal>run</goal>
+						</goals>
+						<configuration>
+							<target>
+								<property name="bom" location="${project.build.directory}/bom.json"/>
+								<fail message="bom.json is missing. The CycloneDX plugin needs the network and skips an offline build.">
+									<condition>
+										<not>
+											<available file="${bom}"/>
+										</not>
+									</condition>
+								</fail>
+								<replaceregexp file="${bom}" flags="g" encoding="UTF-8"
+										match="&quot;name&quot; : &quot;The GNU General Public License&quot;"
+										replace="&quot;id&quot; : &quot;GPL-3.0-or-later&quot;"/>
+								<replaceregexp file="${bom}" flags="gs" encoding="UTF-8"
+										match="\{\s*&quot;license&quot; : \{\s*&quot;id&quot; : &quot;GPL-2\.0-with-classpath-exception&quot;\s*\}\s*\}"
+										replace="{ &quot;expression&quot; : &quot;GPL-2.0-or-later WITH Classpath-exception-2.0&quot; }"/>
+								<fail message="bom.json still names a licence imprecisely.">
+									<condition>
+										<or>
+											<resourcecontains resource="${bom}" substring="The GNU General Public License"/>
+											<resourcecontains resource="${bom}" substring="GPL-2.0-with-classpath-exception"/>
+										</or>
+									</condition>
+								</fail>
+							</target>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
 			<!-- The distribution: target/markdown-ls-<version>-distribution.zip and .tar.gz. -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>

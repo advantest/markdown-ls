@@ -23,6 +23,9 @@ The source code of the components under the Eclipse Public License is available
 from Maven Central, as the JAR with the classifier "sources" of the coordinates
 named below, and from the site of each project.
 
+bom.json lists the same components and their licences as a CycloneDX software
+bill of materials.
+
 <#list licenseMap as e>
 <#assign license = e.getKey()/>
 <#assign projects = e.getValue()/>

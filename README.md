@@ -35,14 +35,14 @@ markdown-ls-<version>/
 │   ├── markdown-ls         start script for Linux, macOS and Git Bash
 │   └── markdown-ls.cmd     start script for Windows
 ├── lib/                    the libraries the server uses
-├── licenses/               the licence texts of these libraries
+├── licenses/               the licence texts of the third-party libraries
 ├── notices/                their copyright and licence notices
 ├── sources/                the source code of the libraries under the GPL
 ├── bom.json                the software bill of materials, in CycloneDX format
 ├── LICENSE                 the licence of the server
 ├── markdown-ls.jar         the server itself, also runnable with "java -jar"
 ├── README.md               this file
-└── THIRD-PARTY.txt         the libraries in lib/ and their licences
+└── THIRD-PARTY.txt         the third-party libraries and their licences
 ```
 
 Generating `bom.json` needs the network, so an offline build (`-o`) fails when packaging.

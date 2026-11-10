@@ -15,6 +15,10 @@ or later with the Classpath exception. The exception permits linking them with
 markdown-ls and distributing the result under the licence of markdown-ls, the
 BSD 3-Clause License. Its text is in notices/jlatexmath-*/META-INF/LICENSE.
 
+The components under the GNU General Public License, jlatexmath, its two font
+JARs and PlantUML, come with their source code: sources/ holds the JAR with
+the source of each of them.
+
 The source code of the components under the Eclipse Public License is available
 from Maven Central, as the JAR with the classifier "sources" of the coordinates
 named below, and from the site of each project.

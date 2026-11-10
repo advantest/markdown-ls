@@ -449,6 +449,24 @@
 							<outputDirectory>${project.build.directory}/third-party/notices</outputDirectory>
 						</configuration>
 					</execution>
+					<!-- The GPL obliges whoever distributes a component in binary form to offer its
+					     source from the same place, so the distribution ships the source JARs of the
+					     components under the GPL. The two filters both apply. -->
+					<execution>
+						<id>collect-gpl-sources</id>
+						<phase>generate-resources</phase>
+						<goals>
+							<goal>copy-dependencies</goal>
+						</goals>
+						<configuration>
+							<includeScope>runtime</includeScope>
+							<includeGroupIds>org.scilab.forge,net.sourceforge.plantuml</includeGroupIds>
+							<includeArtifactIds>jlatexmath,jlatexmath-font-greek,jlatexmath-font-cyrillic,plantuml</includeArtifactIds>
+							<classifier>sources</classifier>
+							<failOnMissingClassifierArtifact>true</failOnMissingClassifierArtifact>
+							<outputDirectory>${project.build.directory}/third-party/sources</outputDirectory>
+						</configuration>
+					</execution>
 				</executions>
 			</plugin>
 

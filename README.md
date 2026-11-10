@@ -40,6 +40,7 @@ markdown-ls-<version>/
 ├── LICENSE                 the licence of the server
 ├── markdown-ls.jar         the server itself, also runnable with "java -jar"
 ├── README.md               this file
+├── sources/                the source code of the libraries under the GPL
 └── THIRD-PARTY.txt         the libraries in lib/ and their licences
 ```
 

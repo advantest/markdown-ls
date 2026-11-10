@@ -36,6 +36,10 @@
 		<jacoco-version>0.8.15</jacoco-version>
 		<!-- The release of the SPDX licence list whose texts the distribution ships. -->
 		<spdx-license-list-version>v3.29.0</spdx-license-list-version>
+		<!-- The groups of the components PlantUML's JAR holds in compiled form. Maven resolves them
+		     as dependencies of PlantUML, which lists them under the licences they name, but lib/ and
+		     the class path leave them out, so that their classes are not there twice. -->
+		<plantuml-bundled-group-ids>org.scilab.forge,org.eclipse.elk,org.eclipse.emf,com.google.guava,com.google.errorprone,com.google.j2objc,org.jspecify</plantuml-bundled-group-ids>
 
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -324,12 +328,12 @@
 					<archive>
 						<manifest>
 							<mainClass>com.advantest.markdown.ls.MarkdownLanguageServer</mainClass>
-							<addClasspath>true</addClasspath>
-							<classpathPrefix>lib/</classpathPrefix>
-							<useUniqueVersions>false</useUniqueVersions>
 							<!-- Implementation-Version names the version the server answers on initialize. -->
 							<addDefaultImplementationEntries>true</addDefaultImplementationEntries>
 						</manifest>
+						<manifestEntries>
+							<Class-Path>${markdown-ls.manifest-class-path}</Class-Path>
+						</manifestEntries>
 					</archive>
 				</configuration>
 			</plugin>
@@ -434,6 +438,19 @@
 				<artifactId>maven-dependency-plugin</artifactId>
 				<version>3.11.0</version>
 				<executions>
+					<!-- The JARs the distribution ships in lib/. -->
+					<execution>
+						<id>collect-libraries</id>
+						<phase>prepare-package</phase>
+						<goals>
+							<goal>copy-dependencies</goal>
+						</goals>
+						<configuration>
+							<includeScope>runtime</includeScope>
+							<excludeGroupIds>${plantuml-bundled-group-ids}</excludeGroupIds>
+							<outputDirectory>${project.build.directory}/lib</outputDirectory>
+						</configuration>
+					</execution>
 					<execution>
 						<id>collect-third-party-notices</id>
 						<phase>generate-resources</phase>
@@ -506,6 +523,30 @@
 				<artifactId>maven-antrun-plugin</artifactId>
 				<version>3.1.0</version>
 				<executions>
+					<!-- The Class-Path of the jar's manifest, naming the JARs collected for lib/. The
+					     maven-dependency-plugin cannot write it, since Maven trims the space separating
+					     the names. -->
+					<execution>
+						<id>class-path-for-manifest</id>
+						<phase>prepare-package</phase>
+						<goals>
+							<goal>run</goal>
+						</goals>
+						<configuration>
+							<exportAntProperties>true</exportAntProperties>
+							<target>
+								<pathconvert property="markdown-ls.manifest-class-path" pathsep=" ">
+									<sort>
+										<fileset dir="${project.build.directory}/lib" includes="*.jar"/>
+									</sort>
+									<chainedmapper>
+										<flattenmapper/>
+										<globmapper from="*" to="lib/*"/>
+									</chainedmapper>
+								</pathconvert>
+							</target>
+						</configuration>
+					</execution>
 					<execution>
 						<id>correct-sbom-licences</id>
 						<phase>package</phase>

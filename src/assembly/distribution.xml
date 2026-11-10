@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- The distribution: the server's jar, its dependencies in lib/, the start scripts in bin/, the licence,
-     the list, the licences and the notices of the third-party components in lib/, the source of
-     those under the GPL, and the software bill of materials. -->
+<!-- The distribution: the server's jar, its dependencies in lib/ except the components PlantUML's
+     JAR holds, the start scripts in bin/, the licence, the list, the licences and the notices of
+     the third-party components, the source of those under the GPL, and the software bill of
+     materials. -->
 <assembly xmlns="http://maven.apache.org/ASSEMBLY/2.2.0"
 		xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 		xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.2.0 https://maven.apache.org/xsd/assembly-2.2.0.xsd">
@@ -67,16 +68,12 @@
 			<directory>${project.build.directory}/third-party/sources</directory>
 			<outputDirectory>sources</outputDirectory>
 		</fileSet>
-	</fileSets>
-
-	<dependencySets>
-		<dependencySet>
+		<!-- The runtime dependencies the maven-dependency-plugin collects, under the names the
+		     Class-Path of the jar's manifest gives. -->
+		<fileSet>
+			<directory>${project.build.directory}/lib</directory>
 			<outputDirectory>lib</outputDirectory>
-			<useProjectArtifact>false</useProjectArtifact>
-			<!-- The same names as in the Class-Path of the jar's manifest. -->
-			<outputFileNameMapping>${artifact.artifactId}-${artifact.baseVersion}${dashClassifier?}.${artifact.extension}</outputFileNameMapping>
-			<scope>runtime</scope>
-		</dependencySet>
-	</dependencySets>
+		</fileSet>
+	</fileSets>
 
 </assembly>

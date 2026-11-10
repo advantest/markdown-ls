@@ -1,5 +1,5 @@
 <#-- The template of THIRD-PARTY.txt, filled in by the license-maven-plugin with the components
-     the distribution ships in lib/, grouped by the licences they name. -->
+     the distribution ships, grouped by the licences they name. -->
 Third-party components of markdown-ls
 
 The distribution ships the components below in lib/, each in its unmodified JAR
@@ -9,6 +9,10 @@ holders of the components: those each JAR carries, in a directory named after
 the JAR, and those of flexmark-java, autolink-java, flexmark-extensions,
 markdown-core and markdown-service, whose JARs carry none, in a directory named
 after the project.
+
+PlantUML's JAR holds jlatexmath and its two fonts, ELK, EMF, Guava and the
+libraries Guava needs in compiled form. lib/ leaves out their own JARs, so that
+their classes are not there twice, but they are listed below like the others.
 
 jlatexmath and its two font JARs are under the GNU General Public License 2.0
 or later with the Classpath exception. The exception permits linking them with

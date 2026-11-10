@@ -42,3 +42,13 @@ markdown-ls-<version>/
 
 The server is not started by hand. An editor's LSP client starts `bin/markdown-ls`, or
 `bin\markdown-ls.cmd` on Windows, and talks to it over standard input and output.
+
+## License
+
+This work is made available under the terms of the BSD 3-Clause License.
+The licence accompanies this distribution: [LICENSE](LICENSE).
+
+## Copyright
+
+Copyright (c) 2026, Advantest Europe GmbH.
+All rights reserved.

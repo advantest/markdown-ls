@@ -1,5 +1,6 @@
 /*
- * Copyright © 2026 Advantest Europe GmbH. All rights reserved.
+ * Copyright © 2026 Advantest Europe GmbH
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 package com.advantest.markdown.ls;
 import static org.junit.jupiter.api.Assertions.assertEquals;

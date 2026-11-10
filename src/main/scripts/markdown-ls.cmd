@@ -1,5 +1,6 @@
 @echo off
-rem Copyright (c) 2026 Advantest Europe GmbH. All rights reserved.
+rem Copyright (c) 2026 Advantest Europe GmbH
+rem SPDX-License-Identifier: BSD-3-Clause
 rem
 rem Starts markdown-ls with a Java 21 or newer, taken from
 rem   1. the environment variable MARKDOWN_LS_JAVA, the path of a java executable,

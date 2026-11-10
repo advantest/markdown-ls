@@ -1,6 +1,7 @@
 #!/bin/sh
 #
-# Copyright © 2026 Advantest Europe GmbH. All rights reserved.
+# Copyright © 2026 Advantest Europe GmbH
+# SPDX-License-Identifier: BSD-3-Clause
 #
 # Starts markdown-ls with a Java 21 or newer, taken from
 #   1. the environment variable MARKDOWN_LS_JAVA, the path of a java executable,

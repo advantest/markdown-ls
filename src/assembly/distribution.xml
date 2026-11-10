@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- The distribution: the server's jar, its dependencies in lib/, the start scripts in bin/ and the licence. -->
+<!-- The distribution: the server's jar, its dependencies in lib/, the start scripts in bin/, the licence,
+     and the list, the licences and the notices of the third-party components in lib/. -->
 <assembly xmlns="http://maven.apache.org/ASSEMBLY/2.2.0"
 		xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 		xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.2.0 https://maven.apache.org/xsd/assembly-2.2.0.xsd">
@@ -33,7 +34,32 @@
 		<file>
 			<source>LICENSE</source>
 		</file>
+		<file>
+			<source>${project.build.directory}/generated-sources/license/THIRD-PARTY.txt</source>
+		</file>
 	</files>
+
+	<fileSets>
+		<fileSet>
+			<directory>${project.build.directory}/third-party/licenses</directory>
+			<outputDirectory>licenses</outputDirectory>
+		</fileSet>
+		<fileSet>
+			<directory>${project.build.directory}/third-party/notices</directory>
+			<outputDirectory>notices</outputDirectory>
+			<!-- Only the files, leaving out the empty directories of JARs without notices. -->
+			<includes>
+				<include>*/META-INF/**</include>
+				<include>*/about.html</include>
+				<include>*/org/scilab/forge/jlatexmath/fonts/licences/**</include>
+			</includes>
+		</fileSet>
+		<!-- The notices of the components whose JARs carry none. -->
+		<fileSet>
+			<directory>src/license/notices</directory>
+			<outputDirectory>notices</outputDirectory>
+		</fileSet>
+	</fileSets>
 
 	<dependencySets>
 		<dependencySet>

@@ -34,6 +34,8 @@
 		<junit-version>5.9.2</junit-version>
 		<slf4j-version>2.0.18</slf4j-version>
 		<jacoco-version>0.8.15</jacoco-version>
+		<!-- The release of the SPDX licence list whose texts the distribution ships. -->
+		<spdx-license-list-version>v3.29.0</spdx-license-list-version>
 
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -332,6 +334,124 @@
 				</configuration>
 			</plugin>
 
+			<!-- The distribution names the third-party components it ships in lib/ and their licences.
+			     THIRD-PARTY.txt lists the components by licence, licenses/ holds the text of each licence,
+			     taken from the SPDX licence list rather than from the web pages the components name, and
+			     notices/ holds the licence and notice files each component's JAR carries, which name its
+			     copyright holders, together with those of src/license/notices for the components whose
+			     JARs carry none. The build fails where a component names no licence or a licence text
+			     cannot be downloaded. The URLs naming the GPL leave open whether a later version may be
+			     chosen; the components shipped today allow it. -->
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>license-maven-plugin</artifactId>
+				<version>2.9.0</version>
+				<configuration>
+					<includedScopes>compile,runtime</includedScopes>
+				</configuration>
+				<executions>
+					<execution>
+						<id>list-third-party-components</id>
+						<goals>
+							<goal>add-third-party</goal>
+						</goals>
+						<configuration>
+							<fileTemplate>${project.basedir}/src/license/third-party.ftl</fileTemplate>
+							<!-- Ships with the distribution, not inside markdown-ls.jar. -->
+							<addOutputDirectoryAsResourceDir>false</addOutputDirectoryAsResourceDir>
+							<failOnMissing>true</failOnMissing>
+							<licenseMerges>
+								<licenseMerge>Apache-2.0|Apache 2.0|Apache License, Version 2.0|The Apache Software License, Version 2.0</licenseMerge>
+								<licenseMerge>BSD-2-Clause|BSD 2-Clause License</licenseMerge>
+								<licenseMerge>EPL-1.0|The Eclipse Public License Version 1.0</licenseMerge>
+								<licenseMerge>EPL-2.0|Eclipse Public License, Version 2.0</licenseMerge>
+								<licenseMerge>GPL-2.0-or-later WITH Classpath-exception-2.0|GPLv2 with Classpath Exception</licenseMerge>
+								<licenseMerge>GPL-3.0-or-later|The GNU General Public License</licenseMerge>
+								<licenseMerge>MIT|MIT License|The MIT License</licenseMerge>
+							</licenseMerges>
+						</configuration>
+					</execution>
+					<execution>
+						<id>download-third-party-licences</id>
+						<phase>generate-resources</phase>
+						<goals>
+							<goal>download-licenses</goal>
+						</goals>
+						<configuration>
+							<licensesOutputDirectory>${project.build.directory}/third-party/licenses</licensesOutputDirectory>
+							<licensesOutputFile>${project.build.directory}/third-party/licenses.xml</licensesOutputFile>
+							<cleanLicensesOutputDirectory>true</cleanLicensesOutputDirectory>
+							<errorRemedy>failFast</errorRemedy>
+							<licenseUrlReplacements>
+							<licenseUrlReplacement>
+								<regexp>(?i)https?://(www\.)?apache\.org/licenses/LICENSE-2\.0(\.txt|\.html)?</regexp>
+								<replacement>https://raw.githubusercontent.com/spdx/license-list-data/${spdx-license-list-version}/text/Apache-2.0.txt</replacement>
+							</licenseUrlReplacement>
+							<licenseUrlReplacement>
+								<regexp>(?i)https?://(www\.)?opensource\.org/licenses?/BSD-2-Clause</regexp>
+								<replacement>https://raw.githubusercontent.com/spdx/license-list-data/${spdx-license-list-version}/text/BSD-2-Clause.txt</replacement>
+							</licenseUrlReplacement>
+							<licenseUrlReplacement>
+								<regexp>(?i)https?://(www\.)?opensource\.org/licenses?/BSD-3-Clause</regexp>
+								<replacement>https://raw.githubusercontent.com/spdx/license-list-data/${spdx-license-list-version}/text/BSD-3-Clause.txt</replacement>
+							</licenseUrlReplacement>
+							<licenseUrlReplacement>
+								<regexp>(?i)https?://(www\.)?opensource\.org/licenses?/mit(-license\.php)?</regexp>
+								<replacement>https://raw.githubusercontent.com/spdx/license-list-data/${spdx-license-list-version}/text/MIT.txt</replacement>
+							</licenseUrlReplacement>
+							<licenseUrlReplacement>
+								<regexp>(?i)https?://(www\.)?eclipse\.org/legal/epl-v10\.html</regexp>
+								<replacement>https://raw.githubusercontent.com/spdx/license-list-data/${spdx-license-list-version}/text/EPL-1.0.txt</replacement>
+							</licenseUrlReplacement>
+							<licenseUrlReplacement>
+								<regexp>(?i)https?://(www\.)?eclipse\.org/legal/epl-2\.0/?</regexp>
+								<replacement>https://raw.githubusercontent.com/spdx/license-list-data/${spdx-license-list-version}/text/EPL-2.0.txt</replacement>
+							</licenseUrlReplacement>
+							<licenseUrlReplacement>
+								<regexp>(?i)https?://(www\.)?gnu\.org/licenses/old-licenses/gpl-2\.0\.txt</regexp>
+								<replacement>https://raw.githubusercontent.com/spdx/license-list-data/${spdx-license-list-version}/text/GPL-2.0-or-later.txt</replacement>
+							</licenseUrlReplacement>
+							<licenseUrlReplacement>
+								<regexp>(?i)https?://(www\.)?gnu\.org/licenses/gpl(-3\.0)?\.txt</regexp>
+								<replacement>https://raw.githubusercontent.com/spdx/license-list-data/${spdx-license-list-version}/text/GPL-3.0-or-later.txt</replacement>
+							</licenseUrlReplacement>
+							</licenseUrlReplacements>
+							<licenseUrlFileNames>
+							<Apache-2.0.txt>.*/text/Apache-2\.0\.txt</Apache-2.0.txt>
+							<BSD-2-Clause.txt>.*/text/BSD-2-Clause\.txt</BSD-2-Clause.txt>
+							<BSD-3-Clause.txt>.*/text/BSD-3-Clause\.txt</BSD-3-Clause.txt>
+							<MIT.txt>.*/text/MIT\.txt</MIT.txt>
+							<EPL-1.0.txt>.*/text/EPL-1\.0\.txt</EPL-1.0.txt>
+							<EPL-2.0.txt>.*/text/EPL-2\.0\.txt</EPL-2.0.txt>
+							<GPL-2.0-or-later.txt>.*/text/GPL-2\.0-or-later\.txt</GPL-2.0-or-later.txt>
+							<GPL-3.0-or-later.txt>.*/text/GPL-3\.0-or-later\.txt</GPL-3.0-or-later.txt>
+							</licenseUrlFileNames>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<version>3.11.0</version>
+				<executions>
+					<execution>
+						<id>collect-third-party-notices</id>
+						<phase>generate-resources</phase>
+						<goals>
+							<goal>unpack-dependencies</goal>
+						</goals>
+						<configuration>
+							<includeScope>runtime</includeScope>
+							<includes>META-INF/LICENSE*,META-INF/NOTICE*,META-INF/COPYING*,about.html,org/scilab/forge/jlatexmath/fonts/licences/*</includes>
+							<useSubDirectoryPerArtifact>true</useSubDirectoryPerArtifact>
+							<outputDirectory>${project.build.directory}/third-party/notices</outputDirectory>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
 			<!-- The distribution: target/markdown-ls-<version>-distribution.zip and .tar.gz. -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -348,6 +468,8 @@
 							<descriptors>
 								<descriptor>src/assembly/distribution.xml</descriptor>
 							</descriptors>
+							<!-- The paths of some notices exceed the 100 characters of a plain tar entry. -->
+							<tarLongFileMode>posix</tarLongFileMode>
 						</configuration>
 					</execution>
 				</executions>

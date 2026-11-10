@@ -35,9 +35,12 @@ markdown-ls-<version>/
 │   ├── markdown-ls         start script for Linux, macOS and Git Bash
 │   └── markdown-ls.cmd     start script for Windows
 ├── lib/                    the libraries the server uses
+├── licenses/               the licence texts of these libraries
+├── notices/                their copyright and licence notices
 ├── LICENSE                 the licence of the server
 ├── markdown-ls.jar         the server itself, also runnable with "java -jar"
-└── README.md               this file
+├── README.md               this file
+└── THIRD-PARTY.txt         the libraries in lib/ and their licences
 ```
 
 ## Running

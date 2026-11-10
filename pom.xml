@@ -363,10 +363,9 @@
 							<licenseMerges>
 								<licenseMerge>Apache-2.0|Apache 2.0|Apache License, Version 2.0|The Apache Software License, Version 2.0</licenseMerge>
 								<licenseMerge>BSD-2-Clause|BSD 2-Clause License</licenseMerge>
-								<licenseMerge>EPL-1.0|The Eclipse Public License Version 1.0</licenseMerge>
+								<licenseMerge>EPL-1.0|The Eclipse Public License Version 1.0|EPL License</licenseMerge>
 								<licenseMerge>EPL-2.0|Eclipse Public License, Version 2.0</licenseMerge>
 								<licenseMerge>GPL-2.0-or-later WITH Classpath-exception-2.0|GPLv2 with Classpath Exception</licenseMerge>
-								<licenseMerge>GPL-3.0-or-later|The GNU General Public License</licenseMerge>
 								<licenseMerge>MIT|MIT License|The MIT License</licenseMerge>
 							</licenseMerges>
 						</configuration>
@@ -412,8 +411,8 @@
 								<replacement>https://raw.githubusercontent.com/spdx/license-list-data/${spdx-license-list-version}/text/GPL-2.0-or-later.txt</replacement>
 							</licenseUrlReplacement>
 							<licenseUrlReplacement>
-								<regexp>(?i)https?://(www\.)?gnu\.org/licenses/gpl(-3\.0)?\.txt</regexp>
-								<replacement>https://raw.githubusercontent.com/spdx/license-list-data/${spdx-license-list-version}/text/GPL-3.0-or-later.txt</replacement>
+								<regexp>(?i)https?://(www\.)?opensource\.org/licenses?/epl-1-0/?</regexp>
+								<replacement>https://raw.githubusercontent.com/spdx/license-list-data/${spdx-license-list-version}/text/EPL-1.0.txt</replacement>
 							</licenseUrlReplacement>
 							</licenseUrlReplacements>
 							<licenseUrlFileNames>
@@ -424,7 +423,6 @@
 							<EPL-1.0.txt>.*/text/EPL-1\.0\.txt</EPL-1.0.txt>
 							<EPL-2.0.txt>.*/text/EPL-2\.0\.txt</EPL-2.0.txt>
 							<GPL-2.0-or-later.txt>.*/text/GPL-2\.0-or-later\.txt</GPL-2.0-or-later.txt>
-							<GPL-3.0-or-later.txt>.*/text/GPL-3\.0-or-later\.txt</GPL-3.0-or-later.txt>
 							</licenseUrlFileNames>
 						</configuration>
 					</execution>
@@ -498,10 +496,11 @@
 			</plugin>
 
 			<!-- The SBOM takes the licences from the POMs of the components, two of which name them
-			     imprecisely: PlantUML names the GPL without its version, which its source states as
-			     3 or later, and jlatexmath names the GPL 2 only with the Classpath exception, while its
-			     source allows any later version. Both are corrected to the SPDX expressions THIRD-PARTY.txt
-			     names, and the build fails where one of the imprecise licences remains. -->
+			     imprecisely: PlantUML names the EPL without its version, which its source states as 1.0,
+			     and jlatexmath names the GPL 2 only with the Classpath exception, while its source allows
+			     any later version. Both are corrected to the SPDX expressions THIRD-PARTY.txt names, and
+			     the build fails where one of the imprecise licences remains or where the SBOM names
+			     PlantUML's edition under the GPL. -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-antrun-plugin</artifactId>
@@ -524,17 +523,22 @@
 									</condition>
 								</fail>
 								<replaceregexp file="${bom}" flags="g" encoding="UTF-8"
-										match="&quot;name&quot; : &quot;The GNU General Public License&quot;"
-										replace="&quot;id&quot; : &quot;GPL-3.0-or-later&quot;"/>
+										match="&quot;name&quot; : &quot;EPL License&quot;"
+										replace="&quot;id&quot; : &quot;EPL-1.0&quot;"/>
 								<replaceregexp file="${bom}" flags="gs" encoding="UTF-8"
 										match="\{\s*&quot;license&quot; : \{\s*&quot;id&quot; : &quot;GPL-2\.0-with-classpath-exception&quot;\s*\}\s*\}"
 										replace="{ &quot;expression&quot; : &quot;GPL-2.0-or-later WITH Classpath-exception-2.0&quot; }"/>
 								<fail message="bom.json still names a licence imprecisely.">
 									<condition>
 										<or>
-											<resourcecontains resource="${bom}" substring="The GNU General Public License"/>
+											<resourcecontains resource="${bom}" substring="EPL License"/>
 											<resourcecontains resource="${bom}" substring="GPL-2.0-with-classpath-exception"/>
 										</or>
+									</condition>
+								</fail>
+								<fail message="bom.json names PlantUML's edition under the GPL.">
+									<condition>
+										<resourcecontains resource="${bom}" substring="pkg:maven/net.sourceforge.plantuml/plantuml@"/>
 									</condition>
 								</fail>
 							</target>

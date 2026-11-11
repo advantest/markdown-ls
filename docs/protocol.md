@@ -79,7 +79,7 @@ Result:
     { "name": "markdown-service", "version": "1.0.0" },
     { "name": "markdown-core", "version": "2.0.0" },
     { "name": "flexmark-extensions", "version": "2.0.0" },
-    { "name": "flexmark", "version": "0.65.3" },
+    { "name": "flexmark", "version": "0.66.0" },
     { "name": "PlantUML", "version": "1.2026.3" }
   ],
   "plantUml": {

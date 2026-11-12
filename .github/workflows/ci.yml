@@ -1,0 +1,158 @@
+# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-java-with-maven
+
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+# Every branch is built and tested on Linux, macOS and Windows. main and the release/x.y.z branches deploy their
+# -SNAPSHOT versions to GitHub Packages, and a tag x.y.z on main publishes the release x.y.z;
+# .github/scripts/check-versions.sh says which version may be deployed from where.
+#
+# Graphviz comes from conda-forge in the same version on every system, so that PlantUML lays out diagrams alike.
+# Only the conda-forge channel is used, never Anaconda's defaults channel, whose use is subject to a fee.
+#
+# The libraries markdown-ls depends on are read from GitHub Packages with the token of the run;
+# .github/maven-settings.xml passes it to Maven for every repository.
+
+name: Java CI with Maven
+
+on:
+  push:
+    branches-ignore:
+    - master
+    tags:
+    - '[0-9]+.[0-9]+.[0-9]+'
+  pull_request:
+    branches:
+    - main
+  workflow_dispatch:
+
+env:
+  GRAPHVIZ_VERSION: 11.0.0
+
+jobs:
+  build:
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:  # see https://docs.github.com/en/actions/reference/runners/github-hosted-runners
+        - ubuntu-latest
+        - macos-26-intel
+        - macos-latest # ARM
+        - windows-latest
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+    - name: Check out
+      uses: actions/checkout@v6
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v5 # see https://github.com/actions/setup-java
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Install Graphviz from conda-forge
+      id: graphviz
+      uses: mamba-org/setup-micromamba@v3 # see https://github.com/mamba-org/setup-micromamba
+      with:
+        environment-name: graphviz
+        create-args: graphviz=${{ env.GRAPHVIZ_VERSION }}
+        condarc: |
+          channels:
+            - conda-forge
+          channel_priority: strict
+        cache-environment: true
+
+    # PlantUML does not look for dot on the PATH; it takes the environment variable GRAPHVIZ_DOT.
+    - name: Tell PlantUML where Graphviz is
+      shell: bash
+      env:
+        ENV_PATH: ${{ steps.graphviz.outputs.environment-path }}
+      run: |
+        if [ "$RUNNER_OS" = Windows ]; then
+          dot="$(cygpath -w "$ENV_PATH/Library/bin/dot.exe")"
+        else
+          dot="$ENV_PATH/bin/dot"
+        fi
+        "$dot" -V
+        echo "GRAPHVIZ_DOT=$dot" >> "$GITHUB_ENV"
+
+    - name: Build with Maven
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: mvn -B clean verify -U -s .github/maven-settings.xml
+
+    - name: Keep the code coverage report
+      if: always() && matrix.os == 'ubuntu-latest'
+      uses: actions/upload-artifact@v7
+      with:
+        name: code-coverage-report
+        path: target/site/jacoco
+        if-no-files-found: warn
+
+  versions:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      deploy: ${{ steps.check.outputs.deploy }}
+
+    steps:
+    - name: Check out
+      uses: actions/checkout@v6
+      with:
+        # The check compares the version with those of the other branches and looks for the commit on main.
+        fetch-depth: 0
+        filter: blob:none
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v5
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
+    # On a tag, the check resolves the dependencies to make sure that none is a snapshot.
+    - name: Check the version
+      id: check
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        MAVEN_ARGS: -s .github/maven-settings.xml
+      run: bash .github/scripts/check-versions.sh
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build, versions]
+    if: needs.versions.outputs.deploy == 'true' && github.event_name != 'pull_request' && github.repository == 'advantest/markdown-ls'
+    # Two pushes to one branch must not deploy at the same time, and a deployment is never cancelled halfway.
+    concurrency:
+      group: deploy-${{ github.ref }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Check out
+      uses: actions/checkout@v6
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v5
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Deploy to GitHub Maven Packages
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: mvn -B -Pdeploy-github -DskipTests deploy -s .github/maven-settings.xml

@@ -24,9 +24,9 @@ given in `MARKDOWN_LS_OPTS`.
 ./mvnw verify
 ```
 
-The build needs Java 21 and Maven 3.9, which the Maven wrapper fetches. It takes `markdown-service` from
-the local Maven repository as long as that library is not published, so install it there first with
-`./mvnw install` in its own checkout. The build produces `target/markdown-ls-<version>-distribution.zip`
+The build needs Java 21 and Maven 3.9, which the Maven wrapper fetches. It takes `markdown-service` and the
+libraries below it from GitHub Packages, which asks for a GitHub token for each `github-packages-*` repository of
+the `pom.xml` in the Maven settings. The build produces `target/markdown-ls-<version>-distribution.zip`
 and `.tar.gz`, which hold:
 
 ```text

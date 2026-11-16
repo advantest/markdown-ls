@@ -7,8 +7,9 @@
 # documentation.
 
 # Every branch is built and tested on Linux, macOS and Windows. main and the release/x.y.z branches deploy their
-# -SNAPSHOT versions to GitHub Packages, and a tag x.y.z on main publishes the release x.y.z;
-# .github/scripts/check-versions.sh says which version may be deployed from where.
+# versions to GitHub Packages, the -SNAPSHOT versions as well as the dated releases x.y.z-yyyyMMdd-HHmm. A final
+# release is a dated release that is kept: tagging it publishes nothing. .github/scripts/check-versions.sh says
+# which version may be deployed from where.
 #
 # Graphviz comes from conda-forge in the same version on every system, so that PlantUML lays out diagrams alike.
 # Only the conda-forge channel is used, never Anaconda's defaults channel, whose use is subject to a fee.
@@ -22,8 +23,6 @@ on:
   push:
     branches-ignore:
     - master
-    tags:
-    - '[0-9]+.[0-9]+.[0-9]+'
   pull_request:
     branches:
     - main
@@ -121,7 +120,7 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
 
-    # On a tag, the check resolves the dependencies to make sure that none is a snapshot.
+    # For a dated release, the check resolves the dependencies to make sure that none is a snapshot.
     - name: Check the version
       id: check
       env:
